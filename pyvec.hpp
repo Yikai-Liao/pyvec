@@ -34,6 +34,12 @@ private:
     size_type _chunk_pivot = 0;
     size_type _capacity = 0;
 
+    /*
+     *  Private helper functions
+     */
+
+    [[nodiscard]]
+
     vec<T>& new_chunck(size_type size) {
         _resources->emplace_back();
         auto &chunck = _resources->back();
@@ -44,6 +50,7 @@ private:
 
     [[nodiscard]] vec<T>& suitable_chunck(size_type expected_size) {
         if (expected_size == 0) { throw std::invalid_argument("pyvec: expected_size == 0"); }
+        try_init();
         vec<T> * ans = nullptr;
         for(auto i = _chunk_pivot; i < _resources->size(); ++i) {
             auto &chunck = _resources->operator[](i);
@@ -120,6 +127,9 @@ public:
         // iterator constructor
         explicit const_iterator(const const_pointer* ptr) : _ptr(ptr) {}
 
+        // allow implicit conversion from iterator to const_iterator
+        const_iterator(const iterator& other) : _ptr(other._ptr) {}
+
         // iterator dereference
         reference operator*() const { return **_ptr; }
         pointer operator->() const { return *_ptr; }
@@ -155,15 +165,65 @@ public:
     iterator begin() const { return cbegin(); }
     iterator end() const { return cend(); }
 
+    T& front() { return *_ptrs.front(); }
+    T& back() { return *_ptrs.back(); }
+
+    const T& front() const { return *_ptrs.front(); }
+    const T& back() const { return *_ptrs.back(); }
+
+    /*
+     *  Capacity
+     */
+
     [[nodiscard]] size_type size() const { return _ptrs.size(); }
     [[nodiscard]] size_type capacity() const { return _capacity; }
 
     [[nodiscard]] bool empty() const { return _ptrs.empty(); }
-    [[nodiscard]] bool inited() const { return _resources != nullptr; }
+    [[nodiscard]] bool inited() const { return _resources ? true: false; }
 
-    void swap(pyvec& other) noexcept {
-        std::swap(_resources, other._resources);
-        std::swap(_ptrs, other._ptrs);
+    void resize(const size_type n) {
+        const auto cur_size = size();
+        _ptrs.resize(n);
+        if(n > cur_size) {
+            vec<T>& chunck = suitable_chunck(n - cur_size);
+            const auto cur_chunck_size = chunck.size();
+            const auto new_chunck_size = cur_chunck_size + n - cur_size;
+            if (new_chunck_size > chunck.capacity()) {
+                throw std::runtime_error("pyvec::resize: new_chunck_size > chunck.capacity()");
+            }   chunck.resize(new_chunck_size);
+            for(auto i = 0; i < n - cur_size; ++i) {
+                _ptrs[cur_size + i] = &chunck[cur_chunck_size + i];
+            }
+        }
+    }
+
+    void resize(const size_type n, const_reference value) {
+        const auto cur_size = size();
+        _ptrs.resize(n);
+        if(n > cur_size) {
+            vec<T>& chunck = suitable_chunck(n - cur_size);
+            const auto cur_chunck_size = chunck.size();
+            const auto new_chunck_size = cur_chunck_size + n - cur_size;
+            if (new_chunck_size > chunck.capacity()) {
+                throw std::runtime_error("pyvec::resize: new_chunck_size > chunck.capacity()");
+            }   chunck.resize(new_chunck_size, value);
+            for(auto i = 0; i < n - cur_size; ++i) {
+                chunck.push_back(value);
+                _ptrs[cur_size + i] = &chunck[cur_chunck_size + i];
+            }
+        }
+    }
+
+    void shrink_to_fit() {
+        _ptrs.shrink_to_fit();
+        _resources->shrink_to_fit();
+    }
+
+    void reserve(const size_type n) {
+        if(n > _capacity) {
+            vec<T>& chunck = new_chunck(n - _capacity);
+            chunck.reserve(n - _capacity);
+        }
     }
 
     /*
@@ -171,7 +231,7 @@ public:
      */
 
     // default constructor
-    pyvec(): _resources(std::make_shared<vec<vec<T>>>()) {}
+    pyvec(): _resources(std::make_shared<vec<vec<T>>>()), _ptrs(), _chunk_pivot(0), _capacity(0) {}
 
     // deepcopy constructor
     template<template<class> class Iter>
@@ -191,28 +251,26 @@ public:
     pyvec(const pyvec& other): pyvec(other.cbegin(), other.cend()) {}
 
     // move constructor
-    pyvec(pyvec &&other)  noexcept {
+    pyvec(pyvec &&other) noexcept {
         _resources = std::move(other._resources);
         _ptrs = std::move(other._ptrs);
+        _chunk_pivot = other._chunk_pivot;
+        _capacity = other._capacity;
     }
+
     // destructor
     ~pyvec() = default;
+
+    void try_init() {
+        if(!_resources) {
+            _resources = std::make_shared<vec<vec<T>>>();
+        }
+    }
 
     // python like slice but using deep copy to avoid potential circular references
     self slice(const difference_type begin, const difference_type end) const {
         size_type _begin = py_index(begin), _end = py_index(end);
         return self(cbegin() + _begin, cbegin() + _end);
-    }
-
-    /*
-     *  Assignment
-     */
-
-    pyvec& operator=(pyvec other) { swap(other); return *this; }
-    pyvec& operator=(pyvec&& other) noexcept {
-        _resources = std::move(other._resources);
-        _ptrs = std::move(other._ptrs);
-        return *this;
     }
 
     /*
@@ -245,8 +303,138 @@ public:
         _ptrs.push_back(&chunk.back());
     }
 
+    void push_back(T&& value) {
+        auto& chunk = suitable_chunck(1);
+        chunk.push_back(std::move(value));
+        _ptrs.push_back(&chunk.back());
+    }
 
+    template<typename... Args>
+    iterator emplace(const_iterator pos, Args&&... args) {
+        vec<T>& chunk = suitable_chunck(1);
+        chunk.emplace_back(std::forward<Args>(args)...);
+        const size_type index = pos - cbegin();
+        _ptrs.insert(pos._ptr, &chunk.back());
+        return { _ptrs.data() + index };
+    }
 
+    template<typename... Args>
+    void emplace_back(Args&&... args) {
+        vec<T>& chunk = suitable_chunck(1);
+        chunk.emplace_back(std::forward<Args>(args)...);
+        _ptrs.push_back(&chunk.back());
+    }
+
+    void swap(pyvec& other) noexcept {
+        std::swap(_resources, other._resources);
+        std::swap(_ptrs, other._ptrs);
+        std::swap(_chunk_pivot, other._chunk_pivot);
+        std::swap(_capacity, other._capacity);
+    }
+
+    void clear() {
+        _resources = std::make_shared<vec<vec<T>>>();
+        _ptrs.clear();
+        _chunk_pivot = 0;
+        _capacity = 0;
+    }
+
+    iterator erase(const_iterator pos) {
+        const size_type index = pos - cbegin();
+        _ptrs.erase(pos._ptr);
+        return { _ptrs.data() + index };
+    }
+
+    iterator erase(const_iterator begin, const_iterator end) {
+        if(begin > end) { throw std::invalid_argument("pyvec: begin > end"); }
+        const size_type index = begin - cbegin();
+        _ptrs.erase(begin._ptr, end._ptr);
+        return { _ptrs.data() + index };
+    }
+
+    void pop_back() { _ptrs.pop_back(); }
+
+    /*
+     *  Assignment
+     */
+
+    void assign(const size_type n, const_reference value) {
+        clear();
+        vec<T>& chunck = suitable_chunck(n);
+        for(auto i = 0; i < n; ++i) {
+            chunck.push_back(value);
+            _ptrs.emplace_back(&chunck.back());
+        }
+    }
+
+    void assign(const_iterator begin, const_iterator end) {
+        if(begin > end) { throw std::invalid_argument("pyvec: begin > end"); }
+        clear();
+        const size_type n = end - begin;
+        vec<T>& chunck = suitable_chunck(n);
+        for(auto it = begin; it != end; ++it) {
+            chunck.push_back(*it);
+            _ptrs.emplace_back(&chunck.back());
+        }
+
+    }
+
+    void assign(std::initializer_list<T> il) {
+        clear();
+        vec<T>& chunck = suitable_chunck(il.size());
+        for(auto it = il.begin(); it != il.end(); ++it) {
+            chunck.push_back(*it);
+            _ptrs.emplace_back(&chunck.back());
+        }
+    }
+
+    pyvec& operator=(const pyvec& other) {
+        if(this == &other) { return *this; }
+        clear();
+        vec<T>& chunck = new_chunck(other.size());
+        for(const auto& value: other) {
+            chunck.push_back(value);
+            _ptrs.push_back(&chunck.back());
+        }
+        return *this;
+    }
+
+    pyvec& operator=(pyvec&& other) noexcept {
+        if(this == &other) { return *this; }
+        _resources = std::move(other._resources);
+        _ptrs = std::move(other._ptrs);
+        _chunk_pivot = other._chunk_pivot;
+        _capacity = other._capacity;
+        return *this;
+    }
+
+    pyvec& operator=(std::initializer_list<T> il) { assign(il); return *this; }
+
+    /*
+     *  Relational operators
+     */
+
+    [[nodiscard]] bool operator==(const pyvec<T>& other) const {
+        // need to check if T is comparable
+        if (size() != other.size()) { return false; }
+        for(auto it = cbegin(), it2 = other.cbegin(); it != cend(); ++it, ++it2) {
+            if(*it != *it2) { return false; }
+        }   return true;
+    }
+
+    [[nodiscard]] bool operator!=(const pyvec<T>& other) const { return !(*this == other); }
+
+    [[nodiscard]] bool operator<(const pyvec<T>& other) const {
+        // need to check if T is comparable
+        for(auto it = cbegin(), it2 = other.cbegin(); it != cend() && it2 != other.cend(); ++it, ++it2) {
+            if(*it < *it2) { return true; }
+            if(*it > *it2) { return false; }
+        }   return size() < other.size();
+    }
+
+    [[nodiscard]] bool operator>(const pyvec<T>& other) const { return other < *this; }
+    [[nodiscard]] bool operator<=(const pyvec<T>& other) const { return !(other < *this); }
+    [[nodiscard]] bool operator>=(const pyvec<T>& other) const { return !(*this < other); }
 
 };
 
