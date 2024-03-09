@@ -9,6 +9,7 @@
 TEST_CASE("pyvec basic editing", "[pyvec]") {
     pyvec<int> v { 1, 2, 3, 4, 5 };
     REQUIRE(v.size() == 5);
+    REQUIRE(v.capacity() >= 5);
     REQUIRE(v.collect() == std::vector<int>{1, 2, 3, 4, 5});
 
     SECTION("push_back and emplace_back") {
@@ -63,4 +64,38 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         v = {1,2,3,4,5};
         REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
     }
+}
+
+TEST_CASE("Comparison Operator", "[pyvec]") {
+    pyvec<int> v1 {1,2,3,4,5};
+    pyvec<int> v2 {1,2,3,4,5};
+    pyvec<int> v3 {1,2,3,4,6};
+    pyvec<int> v4 {1,2,3,4};
+    pyvec<int> v5 {1,2,3,4,5,6};
+
+    REQUIRE(v1 == v2);
+    // !=
+    REQUIRE(v1 != v3);
+    REQUIRE(v1 != v4);
+    REQUIRE(v1 != v5);
+
+    // <
+    REQUIRE(v1 < v3);
+    REQUIRE(v1 < v5);
+
+    // >
+    REQUIRE(v3 > v1);
+    REQUIRE(v5 > v1);
+
+    // <=
+    REQUIRE(v1 <= v2);
+    REQUIRE(v1 <= v1);
+    REQUIRE(v1 <= v3);
+    REQUIRE(v1 <= v5);
+
+    // >=
+    REQUIRE(v2 >= v1);
+    REQUIRE(v1 >= v1);
+    REQUIRE(v3 >= v1);
+    REQUIRE(v5 >= v1);
 }
