@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <memory>
+#include <stdexcept>
 
 template<typename T, size_t min_chunk_size = 64>
 class pyvec {
@@ -81,10 +82,15 @@ public:
     /*
      *  Iterators
      */
+    class const_iterator;
+
     class iterator {
+        friend class pyvec;
+        friend class const_iterator;
         pointer* _ptr;
 
     public:
+
         using value_type = T;
         using reference = T &;
         using pointer = T *;
@@ -132,6 +138,10 @@ public:
             return tmp;
         }
 
+        iterator operator+(difference_type i) const { return iterator{_ptr + i}; }
+
+        iterator operator-(difference_type i) const { return iterator{_ptr - i}; }
+
         difference_type operator-(const iterator& other) const { return _ptr - other._ptr; }
 
         // operator <=>
@@ -144,6 +154,7 @@ public:
     };
 
     class const_iterator {
+        friend class pyvec;
         const const_pointer* _ptr;
 
     public:
@@ -154,12 +165,10 @@ public:
         using iterator_category = std::random_access_iterator_tag;
 
         // iterator constructor
-        explicit const_iterator(const const_pointer* ptr) : _ptr(ptr) {
-        }
+        explicit const_iterator(const const_pointer* ptr) : _ptr(ptr) {}
 
         // allow implicit conversion from iterator to const_iterator
-        const_iterator(const iterator& other) : _ptr(other._ptr) {
-        }
+        const_iterator(const iterator& other) : _ptr(other._ptr) {}
 
         // iterator dereference
         reference operator*() const { return **_ptr; }
@@ -213,14 +222,14 @@ public:
      *  Simple Member functions
      */
 
-    iterator begin() { return {_ptrs.data()}; }
-    iterator end() { return {_ptrs.data() + _ptrs.size()}; }
+    iterator begin() { return iterator{_ptrs.data()}; }
+    iterator end() { return iterator{_ptrs.data() + _ptrs.size()}; }
 
-    const_iterator cbegin() const { return {_ptrs.data()}; }
-    const_iterator cend() const { return {_ptrs.data() + _ptrs.size()}; }
+    const_iterator cbegin() const { return const_iterator{_ptrs.data()}; }
+    const_iterator cend() const { return const_iterator{_ptrs.data() + _ptrs.size()}; }
 
-    iterator begin() const { return cbegin(); }
-    iterator end() const { return cend(); }
+    const_iterator begin() const { return cbegin(); }
+    const_iterator end() const { return cend(); }
 
     T& front() { return *_ptrs.front(); }
     T& back() { return *_ptrs.back(); }
@@ -319,6 +328,15 @@ public:
         _shared_resources = std::move(other._shared_resources);
     }
 
+    // initializer list constructor
+    pyvec(std::initializer_list<T> il): pyvec() {
+        vec<T>& chunck = new_chunck(il.size());
+        for (auto it = il.begin(); it != il.end(); ++it) {
+            chunck.push_back(*it);
+            _ptrs.push_back(&chunck.back());
+        }
+    }
+
     // destructor
     ~pyvec() = default;
 
@@ -368,6 +386,15 @@ public:
         return std::make_shared<const T>(_resources, _ptrs[py_index(i)]);
     }
 
+    [[nodiscard]] vec<T> collect() const {
+        vec<T> ans;
+        ans.reserve(size());
+        for (const auto& value: *this) {
+            ans.push_back(value);
+        }
+        return ans;
+    }
+
     /*
      *  Modifiers
      */
@@ -389,8 +416,8 @@ public:
         vec<T>& chunk = suitable_chunck(1);
         chunk.emplace_back(std::forward<Args>(args)...);
         const size_type index = pos - cbegin();
-        _ptrs.insert(pos._ptr, &chunk.back());
-        return {_ptrs.data() + index};
+        _ptrs.insert(_ptrs.begin() + index, &chunk.back());
+        return iterator{_ptrs.data() + index};
     }
 
     template<typename... Args>
@@ -417,15 +444,16 @@ public:
 
     iterator erase(const_iterator pos) {
         const size_type index = pos - cbegin();
-        _ptrs.erase(pos._ptr);
-        return {_ptrs.data() + index};
+        _ptrs.erase(_ptrs.begin() + index);
+        return iterator{_ptrs.data() + index};
     }
 
     iterator erase(const_iterator begin, const_iterator end) {
         if (begin > end) { throw std::invalid_argument("pyvec: begin > end"); }
-        const size_type index = begin - cbegin();
-        _ptrs.erase(begin._ptr, end._ptr);
-        return {_ptrs.data() + index};
+        const size_type l = begin - cbegin();
+        const size_type r = end - cbegin();
+        _ptrs.erase(_ptrs.begin() + l, _ptrs.begin() + r);
+        return iterator{_ptrs.data() + l};
     }
 
     void pop_back() { _ptrs.pop_back(); }
