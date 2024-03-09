@@ -99,3 +99,14 @@ TEST_CASE("Comparison Operator", "[pyvec]") {
     REQUIRE(v3 >= v1);
     REQUIRE(v5 >= v1);
 }
+
+TEST_CASE("Slice using shallow copy", "[pyvec]") {
+    pyvec<int> v {1,2,3,4,5};
+    pyvec<int> v1 = v.slice(1, 3);
+    REQUIRE(v1.collect() == std::vector<int>{2,3});
+    REQUIRE(v1.capacity() == 0);
+    REQUIRE(v1.size() == 2);
+    v1.push_back(1);
+    REQUIRE(v1.collect() == std::vector<int>{2,3,1});
+    REQUIRE(v1.capacity() > 1);
+}

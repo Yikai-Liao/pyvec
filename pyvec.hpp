@@ -353,8 +353,8 @@ public:
         if(l > r) { throw std::invalid_argument("pyvec: begin > end"); }
 
         pyvec ans{};
-        ans._shared_resources.resize(_shared_resources->size() + 1);
-        for(auto i = 0; i < _shared_resources->size(); ++i) {
+        ans._shared_resources.resize(_shared_resources.size() + 1);
+        for(auto i = 0; i < _shared_resources.size(); ++i) {
             ans._shared_resources[i] = _shared_resources[i];
         }   ans._shared_resources.back() = _resources;
         ans._ptrs.resize(r - l);
