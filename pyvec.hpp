@@ -29,10 +29,14 @@ private:
     /*
      *  Data
      */
+
     shared<vec<vec<T>>> _resources;
     vec<pointer> _ptrs;
+
     size_type _chunk_pivot = 0;
     size_type _capacity = 0;
+
+    vec<decltype(_resources)> _shared_resources;
 
     /*
      *  Private helper functions
@@ -286,14 +290,12 @@ public:
      */
 
     // default constructor
-    pyvec(): _resources(std::make_shared<vec<vec<T>>>()), _ptrs(), _chunk_pivot(0), _capacity(0) {
+    pyvec(): _resources(std::make_shared<vec<vec<T>>>()), _ptrs(), _chunk_pivot(0), _capacity(0), _shared_resources() {
     }
 
     // deepcopy constructor
-    template<template<class> class Iter>
-    pyvec(const Iter<T> begin, const Iter<T> end): pyvec() {
-        static_assert(std::is_same_v<Iter<T>, const_iterator> || std::is_same_v<Iter<T>, iterator>,
-                      "pyvec: Invalid iterator type");
+    pyvec(const_iterator begin, const_iterator end): pyvec() {
+        // we don't need to copy _shared_resources here because of deepcopy
         if (begin > end) { throw std::invalid_argument("pyvec: begin > end"); }
         if (begin == end) { return; }
         const auto other_size = end - begin;
@@ -314,6 +316,7 @@ public:
         _ptrs = std::move(other._ptrs);
         _chunk_pivot = other._chunk_pivot;
         _capacity = other._capacity;
+        _shared_resources = std::move(other._shared_resources);
     }
 
     // destructor
@@ -325,10 +328,22 @@ public:
         }
     }
 
-    // python like slice but using deep copy to avoid potential circular references
-    self slice(const difference_type begin, const difference_type end) const {
-        size_type _begin = py_index(begin), _end = py_index(end);
-        return self(cbegin() + _begin, cbegin() + _end);
+    // python like slice, using shallow copy
+    pyvec<T> slice(const difference_type begin, const difference_type end) const {
+        const size_type l = py_index(begin);
+        const size_type r = py_index(end);
+        if(l > r) { throw std::invalid_argument("pyvec: begin > end"); }
+
+        pyvec ans{};
+        ans._shared_resources.resize(_shared_resources->size() + 1);
+        for(auto i = 0; i < _shared_resources->size(); ++i) {
+            ans._shared_resources[i] = _shared_resources[i];
+        }   ans._shared_resources.back() = _resources;
+        ans._ptrs.resize(r - l);
+        for(auto i = l; i < r; ++i) {
+            ans._ptrs[i - l] = _ptrs[i];
+        }
+        return ans;
     }
 
     /*
@@ -395,6 +410,7 @@ public:
     void clear() {
         _resources = std::make_shared<vec<vec<T>>>();
         _ptrs.clear();
+        _shared_resources.clear();
         _chunk_pivot = 0;
         _capacity = 0;
     }
