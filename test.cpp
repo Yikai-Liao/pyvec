@@ -4,7 +4,7 @@
 #include "pyvec.hpp"
 #include <list>
 #include <catch2/catch_test_macros.hpp>
-
+#include <iostream>
 
 TEST_CASE("pyvec basic editing", "[pyvec]") {
     pyvec<int> v { 1, 2, 3, 4, 5 };
@@ -164,6 +164,7 @@ TEST_CASE("memory stability", "[pyvec]") {
             REQUIRE(ptrs[i] == &v[i]);
         }
     }
+
     SECTION("capacity") {
         v.reserve(1000);
         for(int i = 0; i < 5; ++i) {
@@ -181,5 +182,16 @@ TEST_CASE("memory stability", "[pyvec]") {
         for(int i = 0; i < 2; ++i) {
             REQUIRE(ptrs[i] == &v[i]);
         }
+    }
+
+    SECTION("sort") {
+        std::sort(v.begin(), v.end(), [](int a, int b) { return a > b; });
+        REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
+        for(int i = 0; i < 5; ++i) {
+            std::cout << *ptrs[i] << "-" <<ptrs[i] << " ";
+        }   std::cout << std::endl;
+        for(int i = 0; i < 5; ++i) {
+            std::cout << v[i] <<"-"<<&v[i] << " ";
+        }   std::cout << std::endl;
     }
 }
