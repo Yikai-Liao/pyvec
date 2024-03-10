@@ -168,18 +168,22 @@ TEST_CASE("memory stability", "[pyvec]") {
     SECTION("capacity") {
         v.reserve(1000);
         for(int i = 0; i < 5; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
             REQUIRE(ptrs[i] == &v[i]);
         }
         v.shrink_to_fit();
         for(int i = 0; i < 5; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
             REQUIRE(ptrs[i] == &v[i]);
         }
         v.resize(1000);
         for(int i = 0; i < 5; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
             REQUIRE(ptrs[i] == &v[i]);
         }
         v.resize(2);
         for(int i = 0; i < 2; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
             REQUIRE(ptrs[i] == &v[i]);
         }
     }
