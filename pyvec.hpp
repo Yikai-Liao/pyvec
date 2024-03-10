@@ -427,6 +427,77 @@ public:
         _ptrs.push_back(&chunk.back());
     }
 
+    iterator insert(const_iterator pos, const_reference value) {
+        vec<T>& chunk = suitable_chunck(1);
+        chunk.push_back(value);
+        const size_type index = pos - cbegin();
+        _ptrs.insert(_ptrs.begin() + index, &chunk.back());
+        return iterator{_ptrs.data() + index};
+    }
+
+    iterator insert(const_iterator pos, T&& value) {
+        vec<T>& chunk = suitable_chunck(1);
+        chunk.push_back(std::move(value));
+        const size_type index = pos - cbegin();
+        _ptrs.insert(_ptrs.begin() + index, &chunk.back());
+        return iterator{_ptrs.data() + index};
+    }
+
+    iterator insert(const_iterator pos, size_type n, const_reference value) {
+        vec<T>& chunk = suitable_chunck(n);
+        const size_type index = pos - cbegin();
+        _ptrs.resize(_ptrs.size() + n);
+        // move the elements after pos
+        for (auto i = _ptrs.size() - 1; i >= index + n; --i) {
+            _ptrs[i] = _ptrs[i - n];
+        }
+        // insert the new elements
+        for (auto i = 0; i < n; ++i) {
+            chunk.push_back(value);
+            _ptrs[index + i] = &chunk.back();
+        }
+        return iterator{_ptrs.data() + index};
+    }
+
+    iterator insert(const_iterator pos, std::initializer_list<T> il) {
+        vec<T>& chunk = suitable_chunck(il.size());
+        const size_type index = pos - cbegin();
+        _ptrs.resize(_ptrs.size() + il.size());
+        // move the elements after pos
+        for (auto i = _ptrs.size() - 1; i >= index + il.size(); --i) {
+            _ptrs[i] = _ptrs[i - il.size()];
+        }
+        // insert the new elements
+        for (auto it = il.begin(); it != il.end(); ++it) {
+            chunk.push_back(*it);
+            _ptrs[index + (it - il.begin())] = &chunk.back();
+        }
+        return iterator{_ptrs.data() + index};
+    }
+    // using template to represent any type of iterator
+    // but we need to add
+    template< class InputIt>
+    iterator insert(
+        std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>, const_iterator> pos,
+        InputIt first, InputIt last
+    ) {
+        const size_type n = std::distance(first, last);
+        vec<T>& chunk = suitable_chunck(n);
+        const size_type index = pos - cbegin();
+        _ptrs.resize(_ptrs.size() + n);
+        // move the elements after pos
+        for (auto i = _ptrs.size() - 1; i >= index + n; --i) {
+            _ptrs[i] = _ptrs[i - n];
+        }
+        // insert the new elements
+        for (auto it = first; it != last; ++it) {
+            chunk.push_back(*it);
+            _ptrs[index + (it - first)] = &chunk.back();
+        }
+        return iterator{_ptrs.data() + index};
+    }
+
+
     void swap(pyvec& other) noexcept {
         std::swap(_resources, other._resources);
         std::swap(_ptrs, other._ptrs);

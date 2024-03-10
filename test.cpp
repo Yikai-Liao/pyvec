@@ -26,6 +26,19 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         auto iter = v.emplace(v.begin() + 2, 6);
         REQUIRE(*iter == 6);
         REQUIRE(v.collect() == std::vector<int>{1,2,6,3,4,5});
+        iter = v.insert(v.begin() + 3, 7);
+        REQUIRE(*iter == 7);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,3,4,5});
+        iter = v.insert(v.begin() + 4, 3, 8);
+        REQUIRE(*iter == 8);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,8,8,3,4,5});
+        iter = v.insert(v.begin() + 5, {9,10,11});
+        REQUIRE(*iter == 9);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,10,11,8,8,3,4,5});
+        std::vector<int> tmp {12,13,14};
+        iter = v.insert(v.begin() + 6, tmp.begin(), tmp.end());
+        REQUIRE(*iter == 12);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,12,13,14,10,11,8,8,3,4,5});
     }
 
     SECTION("swap") {
