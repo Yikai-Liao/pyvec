@@ -103,7 +103,7 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
     }
 }
 
-TEST_CASE("Comparison Operator", "[pyvec]") {
+TEST_CASE("comparison operators", "[pyvec]") {
     pyvec<int> v1 {1,2,3,4,5};
     pyvec<int> v2 {1,2,3,4,5};
     pyvec<int> v3 {1,2,3,4,6};
@@ -135,4 +135,51 @@ TEST_CASE("Comparison Operator", "[pyvec]") {
     REQUIRE(v1 >= v1);
     REQUIRE(v3 >= v1);
     REQUIRE(v5 >= v1);
+}
+
+TEST_CASE("memory stability", "[pyvec]") {
+    pyvec<int> v {1,2,3,4,5};
+    std::vector<int*> ptrs(5);
+    for (int i = 0; i < 5; ++i) {
+        ptrs[i] = &v[i];
+    }
+    SECTION("append & remove") {
+        for (int i = 0; i < 100; ++i) {
+            v.push_back(i);
+            v.emplace_back(i);
+        }
+        for (int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        for(int i = 0; i < 50; ++i) {
+            v.pop_back();
+        }
+        for (int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        for(int i = 0; i < 20; ++i) {
+            v.erase(v.end() - 1);
+        }
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+    }
+    SECTION("capacity") {
+        v.reserve(1000);
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        v.shrink_to_fit();
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        v.resize(1000);
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        v.resize(2);
+        for(int i = 0; i < 2; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+    }
 }
