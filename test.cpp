@@ -2,7 +2,7 @@
 // Created by lyk on 24-3-9.
 //
 #include "pyvec.hpp"
-
+#include <list>
 #include <catch2/catch_test_macros.hpp>
 
 
@@ -11,6 +11,21 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
     REQUIRE(v.size() == 5);
     REQUIRE(v.capacity() >= 5);
     REQUIRE(v.collect() == std::vector<int>{1, 2, 3, 4, 5});
+
+    SECTION("constructors") {
+        std::vector<int> tmp_vec{1,2,3,4,5};
+        pyvec<int> tmp1(tmp_vec.begin(), tmp_vec.end());
+        REQUIRE(tmp1.collect() == tmp_vec);
+        pyvec<int> tmp2(tmp1);
+        REQUIRE(tmp2.collect() == tmp_vec);
+        pyvec<int>tmp3(std::move(tmp2));
+        REQUIRE(tmp3.collect() == tmp_vec);
+        std::list<int> tmp_list{1,2,3,4,5};
+        pyvec<int> tmp4(tmp_list.begin(), tmp_list.end());
+        REQUIRE(tmp4.collect() == tmp_vec);
+        pyvec<int> tmp5(tmp4.begin(), tmp4.end());
+        REQUIRE(tmp5.collect() == tmp_vec);
+    }
 
     SECTION("push_back and emplace_back") {
         v.push_back(6);
@@ -35,10 +50,19 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         iter = v.insert(v.begin() + 5, {9,10,11});
         REQUIRE(*iter == 9);
         REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,10,11,8,8,3,4,5});
-        std::vector<int> tmp {12,13,14};
-        iter = v.insert(v.begin() + 6, tmp.begin(), tmp.end());
-        REQUIRE(*iter == 12);
-        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,12,13,14,10,11,8,8,3,4,5});
+        {
+            std::vector<int> tmp {12,13,14};
+            iter = v.insert(v.begin() + 6, tmp.begin(), tmp.end());
+            REQUIRE(*iter == 12);
+            REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,12,13,14,10,11,8,8,3,4,5});
+        }
+        {
+            std::list<int> tmp {15,16,17};
+            iter = v.insert(v.begin() + 7, tmp.begin(), tmp.end());
+            REQUIRE(*iter == 15);
+            REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,12,15,16,17,13,14,10,11,8,8,3,4,5});
+        }
+
     }
 
     SECTION("swap") {

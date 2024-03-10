@@ -26,6 +26,10 @@ private:
     template<typename U>
     using shared = std::shared_ptr<U>;
 
+    template<class InputIt>
+    using is_input_iterator_t = std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>, InputIt>;
+    template<class InputIt>
+    using is_random_access_iterator_t = std::enable_if_t<std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>, InputIt>;
 
     /*
      *  Data
@@ -302,22 +306,27 @@ public:
     pyvec(): _resources(std::make_shared<vec<vec<T>>>()), _ptrs(), _chunk_pivot(0), _capacity(0), _shared_resources() {
     }
 
-    // deepcopy constructor
-    pyvec(const_iterator begin, const_iterator end): pyvec() {
-        // we don't need to copy _shared_resources here because of deepcopy
-        if (begin > end) { throw std::invalid_argument("pyvec: begin > end"); }
+    // // deepcopy constructor
+
+    template<typename InputIt>
+    pyvec(is_input_iterator_t<InputIt> begin, InputIt end): pyvec() {
         if (begin == end) { return; }
-        const auto other_size = end - begin;
-        _ptrs.reserve(other_size);
-        vec<T>& chunck = new_chunck(other_size);
-        for (auto it = begin; it != end; ++it) {
-            chunck.push_back(*it);
-            _ptrs.push_back(&chunck.back());
+        if constexpr (std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>) {
+            const auto other_size = std::distance(begin, end);
+            _ptrs.reserve(other_size);
+            vec<T>& chunck = new_chunck(other_size);
+            for (auto it = begin; it != end; ++it) {
+                chunck.push_back(*it);
+                _ptrs.push_back(&chunck.back());
+            }
+        } else {
+            for(auto it = begin; it != end; ++it) {
+                push_back(*it);
+            }
         }
     }
 
-    pyvec(const pyvec& other): pyvec(other.cbegin(), other.cend()) {
-    }
+    pyvec(const pyvec& other): pyvec(other.cbegin(), other.cend()) {}
 
     // move constructor
     pyvec(pyvec&& other) noexcept {
@@ -336,6 +345,8 @@ public:
             _ptrs.push_back(&chunck.back());
         }
     }
+
+    // const
 
     // destructor
     ~pyvec() = default;
@@ -477,24 +488,27 @@ public:
     // using template to represent any type of iterator
     // but we need to add
     template< class InputIt>
-    iterator insert(
-        std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>, const_iterator> pos,
-        InputIt first, InputIt last
-    ) {
-        const size_type n = std::distance(first, last);
-        vec<T>& chunk = suitable_chunck(n);
-        const size_type index = pos - cbegin();
-        _ptrs.resize(_ptrs.size() + n);
-        // move the elements after pos
-        for (auto i = _ptrs.size() - 1; i >= index + n; --i) {
-            _ptrs[i] = _ptrs[i - n];
+    iterator insert(const_iterator pos, is_input_iterator_t<InputIt> first, InputIt last) {
+        if(first == last) { return iterator{_ptrs.data() + (pos - cbegin())}; }
+        if constexpr (!std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>) {
+            std::vector<T> tmp{first, last};
+            return insert(pos, tmp.begin(), tmp.end());
+        } else {
+            const size_type n = std::distance(first, last);
+            vec<T>& chunk = suitable_chunck(n);
+            const size_type index = pos - cbegin();
+            _ptrs.resize(_ptrs.size() + n);
+            // move the elements after pos
+            for (auto i = _ptrs.size() - 1; i >= index + n; --i) {
+                _ptrs[i] = _ptrs[i - n];
+            }
+            // insert the new elements
+            for (auto it = first; it != last; ++it) {
+                chunk.push_back(*it);
+                _ptrs[index + (it - first)] = &chunk.back();
+            }
+            return iterator{_ptrs.data() + index};
         }
-        // insert the new elements
-        for (auto it = first; it != last; ++it) {
-            chunk.push_back(*it);
-            _ptrs[index + (it - first)] = &chunk.back();
-        }
-        return iterator{_ptrs.data() + index};
     }
 
 
