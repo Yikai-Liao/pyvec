@@ -86,6 +86,8 @@ public:
     /*
      *  Iterators
      */
+    using pointer_iterator = typename decltype(_ptrs)::iterator;
+
     class const_iterator;
 
     class iterator {
@@ -235,6 +237,9 @@ public:
     const_iterator begin() const { return cbegin(); }
     const_iterator end() const { return cend(); }
 
+    pointer_iterator pbegin() { return _ptrs.begin(); }
+    pointer_iterator pend() { return _ptrs.end(); }
+
     T& front() { return *_ptrs.front(); }
     T& back() { return *_ptrs.back(); }
 
@@ -360,12 +365,12 @@ public:
     // python like slice, using shallow copy
     pyvec<T> slice(const difference_type begin, const difference_type end) const {
         const size_type l = py_index(begin);
-        const size_type r = py_index(end);
+        const size_type r = end == _ptrs.size()? end: py_index(end);
         if(l > r) { throw std::invalid_argument("pyvec: begin > end"); }
 
         pyvec ans{};
-        ans._shared_resources.resize(_shared_resources->size() + 1);
-        for(auto i = 0; i < _shared_resources->size(); ++i) {
+        ans._shared_resources.resize(_shared_resources.size() + 1);
+        for(auto i = 0; i < _shared_resources.size(); ++i) {
             ans._shared_resources[i] = _shared_resources[i];
         }   ans._shared_resources.back() = _resources;
         ans._ptrs.resize(r - l);

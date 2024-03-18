@@ -189,13 +189,15 @@ TEST_CASE("memory stability", "[pyvec]") {
     }
 
     SECTION("sort") {
+        auto slice = v.slice(0, 5);
+        std::sort(v.pbegin(), v.pend(), [](const int* a, const int* b) { return *a > *b; });
+        REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
+        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});
+        std::sort(v.pbegin(), v.pend(), [](const int* a, const int* b) { return *a < *b; });
+        REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
+        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});
         std::sort(v.begin(), v.end(), [](int a, int b) { return a > b; });
         REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
-        for(int i = 0; i < 5; ++i) {
-            std::cout << *ptrs[i] << "-" <<ptrs[i] << " ";
-        }   std::cout << std::endl;
-        for(int i = 0; i < 5; ++i) {
-            std::cout << v[i] <<"-"<<&v[i] << " ";
-        }   std::cout << std::endl;
+        REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});
     }
 }
