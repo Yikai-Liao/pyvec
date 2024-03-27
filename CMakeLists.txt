@@ -13,7 +13,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
-add_executable(pyvec_test test.cpp pyvec.hpp)
+add_executable(pyvec_test test.cpp pyvec.hpp pyvec2.hpp)
+add_executable(test2 test2.cpp pyvec2.hpp)
 target_link_libraries(pyvec_test PRIVATE Catch2::Catch2WithMain)
 
 include(CTest)

@@ -77,8 +77,8 @@ private:
 
     struct slice_type {
         size_type l, r;
-        size_type num_step;
         difference_type step;
+        size_type num_step;
         slice_type(const size_type l, const size_type r, const difference_type step): l(l), r(r), step(step) {
             if(step == 0) { throw std::invalid_argument("pyvec: step == 0"); }
             const difference_type n = static_cast<difference_type>(r - l) / step;
