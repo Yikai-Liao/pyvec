@@ -71,8 +71,23 @@ public:
 
     pyvec<T> copy();
 
+    void sort(bool reverse = false);
+    template<typename Key>
+    void sort(bool reverse, Key key);
+
+    bool is_sorted(bool reverse = false) const;
+    template<typename Key>
+    bool is_sorted(bool reverse, Key key) const;
+
+    template<typename Func>
+    void filter(Func func);
+
+    size_t index(const T& value, const difference_type start = 0) const;
+    size_t index(const T& value, const difference_type start, const difference_type stop) const;
+
     /*
      *  Python Magic Method
+     *  __getitem__, __setitem__, __delitem__, __contains__
      */
 
     void setitem(difference_type index, const T& value);
