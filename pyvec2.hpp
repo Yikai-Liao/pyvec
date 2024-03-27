@@ -5,31 +5,13 @@
 struct slice {
     ptrdiff_t start, stop, step;
 
-    slice_type(
+    slice(
         const ptrdiff_t start, const ptrdiff_t stop, const ptrdiff_t step
     ) : start(start), stop(stop), step(step) {}
 };
 
 template<typename T>
 class pyvec {
-private:
-    template<typename U>
-    using vec = std::vector<U>;
-    template<typename U>
-    using shared = std::shared_ptr<U>;
-
-    /*
-     *  Private Data
-     */
-    
-    shared<vec<vec<T>>> _resources;
-    vec<pointer> _ptrs;
-
-    size_type _chunk_pivot = 0;
-    size_type _capacity = 0;
-
-    vec<shared<vec<vec<T>>>> _shared_resources;
-    
 public:
     using value_type = T;
     using reference = T &;
@@ -39,6 +21,25 @@ public:
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
 
+private:
+    template<typename U>
+    using vec = std::vector<U>;
+    template<typename U>
+    using shared = std::shared_ptr<U>;
+
+    /*
+     *  Private Data
+     */
+
+    shared<vec<vec<T>>> _resources;
+    vec<pointer> _ptrs;
+
+    size_type _chunk_pivot = 0;
+    size_type _capacity = 0;
+
+    vec<shared<vec<vec<T>>>> _shared_resources;
+
+public:
     /*
      *  Iterator Declaration
      */
@@ -92,15 +93,15 @@ public:
 
     void setitem(difference_type index, const T& value);
 
-    void setitem(const slice_type& slice, const pyvec<T>& other);
+    void setitem(const slice& t_slice, const pyvec<T>& other);
 
     shared<T> getitem(difference_type index);
 
-    pyvec<T> getitem(const slice_type& slice);
+    pyvec<T> getitem(const slice& t_slice);
 
     void delitem(difference_type index);
 
-    void delitem(const slice_type& slice);
+    void delitem(const slice& t_slice);
 
     bool contains(const T& value) const;
 
@@ -113,7 +114,7 @@ public:
 
     // constructor with iterators
     template<typename InputIt>
-    pyvec(InputIt first, InputItlast);
+    pyvec(InputIt first, InputIt last);
 
     // deep copy constructor
     pyvec(const pyvec<T>& other);
