@@ -5,6 +5,7 @@
 #include <list>
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
+#include <algorithm>
 
 TEST_CASE("pyvec basic editing", "[pyvec]") {
     pyvec<int> v { 1, 2, 3, 4, 5 };
