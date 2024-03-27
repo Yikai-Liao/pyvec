@@ -26,6 +26,10 @@ private:
     template<typename U>
     using shared = std::shared_ptr<U>;
 
+    template<class InputIt>
+    using is_input_iterator_t = std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>, InputIt>;
+    template<class InputIt>
+    using is_random_access_iterator_t = std::enable_if_t<std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>, InputIt>;
 
     /*
      *  Data
@@ -71,6 +75,17 @@ private:
         return *ans;
     }
 
+    struct slice_type {
+        size_type l, r;
+        size_type num_step;
+        difference_type step;
+        slice_type(const size_type l, const size_type r, const difference_type step): l(l), r(r), step(step) {
+            if(step == 0) { throw std::invalid_argument("pyvec: step == 0"); }
+            const difference_type n = static_cast<difference_type>(r - l) / step;
+            num_step = n > 0? n: 0;
+        }
+    };
+
 
     [[nodiscard]] size_type py_index(difference_type i) const {
         i = i < 0 ? size() + i : i;
@@ -78,10 +93,26 @@ private:
         return static_cast<size_type>(i);
     }
 
+    [[nodiscard]] slice_type py_slice(const difference_type begin, const difference_type end, const difference_type step=1) const {
+        const size_type l = py_index(begin);
+        const size_type r = end == _ptrs.size()? end: py_index(end);
+        return slice_type{l, r, step};
+    }
+
+    void ref_other(const pyvec& other) {
+        _shared_resources.reserve(other._shared_resources.size() + 1 + _shared_resources.size());
+        _shared_resources.push_back(other._resources);
+        for(const auto &res: other._shared_resources) {
+            _shared_resources.push_back(res);
+        }
+    }
+
 public:
     /*
      *  Iterators
      */
+    using pointer_iterator = typename decltype(_ptrs)::iterator;
+
     class const_iterator;
 
     class iterator {
@@ -231,6 +262,9 @@ public:
     const_iterator begin() const { return cbegin(); }
     const_iterator end() const { return cend(); }
 
+    pointer_iterator pbegin() { return _ptrs.begin(); }
+    pointer_iterator pend() { return _ptrs.end(); }
+
     T& front() { return *_ptrs.front(); }
     T& back() { return *_ptrs.back(); }
 
@@ -302,22 +336,27 @@ public:
     pyvec(): _resources(std::make_shared<vec<vec<T>>>()), _ptrs(), _chunk_pivot(0), _capacity(0), _shared_resources() {
     }
 
-    // deepcopy constructor
-    pyvec(const_iterator begin, const_iterator end): pyvec() {
-        // we don't need to copy _shared_resources here because of deepcopy
-        if (begin > end) { throw std::invalid_argument("pyvec: begin > end"); }
+    // // deepcopy constructor
+
+    template<typename InputIt>
+    pyvec(is_input_iterator_t<InputIt> begin, InputIt end): pyvec() {
         if (begin == end) { return; }
-        const auto other_size = end - begin;
-        _ptrs.reserve(other_size);
-        vec<T>& chunck = new_chunck(other_size);
-        for (auto it = begin; it != end; ++it) {
-            chunck.push_back(*it);
-            _ptrs.push_back(&chunck.back());
+        if constexpr (std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>) {
+            const auto other_size = std::distance(begin, end);
+            _ptrs.reserve(other_size);
+            vec<T>& chunck = new_chunck(other_size);
+            for (auto it = begin; it != end; ++it) {
+                chunck.push_back(*it);
+                _ptrs.push_back(&chunck.back());
+            }
+        } else {
+            for(auto it = begin; it != end; ++it) {
+                push_back(*it);
+            }
         }
     }
 
-    pyvec(const pyvec& other): pyvec(other.cbegin(), other.cend()) {
-    }
+    pyvec(const pyvec& other): pyvec(other.cbegin(), other.cend()) {}
 
     // move constructor
     pyvec(pyvec&& other) noexcept {
@@ -337,6 +376,8 @@ public:
         }
     }
 
+    // const
+
     // destructor
     ~pyvec() = default;
 
@@ -347,19 +388,14 @@ public:
     }
 
     // python like slice, using shallow copy
-    pyvec<T> slice(const difference_type begin, const difference_type end) const {
-        const size_type l = py_index(begin);
-        const size_type r = py_index(end);
-        if(l > r) { throw std::invalid_argument("pyvec: begin > end"); }
-
+    pyvec<T> slice(const difference_type begin, const difference_type end, const difference_type step=1) const {
+        const auto t_slice = py_slice(begin, end, step);
+        if(t_slice.num_step <= 0) { return pyvec<T>{}; }
         pyvec ans{};
-        ans._shared_resources.resize(_shared_resources.size() + 1);
-        for(auto i = 0; i < _shared_resources.size(); ++i) {
-            ans._shared_resources[i] = _shared_resources[i];
-        }   ans._shared_resources.back() = _resources;
-        ans._ptrs.resize(r - l);
-        for(auto i = l; i < r; ++i) {
-            ans._ptrs[i - l] = _ptrs[i];
+        ans.ref_other(*this);
+        ans._ptrs.reserve(t_slice.num_step);
+        for(auto i = t_slice.l; i < t_slice.r; i += step) {
+            ans._ptrs.push_back(_ptrs[i]);
         }
         return ans;
     }
@@ -426,6 +462,80 @@ public:
         chunk.emplace_back(std::forward<Args>(args)...);
         _ptrs.push_back(&chunk.back());
     }
+
+    iterator insert(const_iterator pos, const_reference value) {
+        vec<T>& chunk = suitable_chunck(1);
+        chunk.push_back(value);
+        const size_type index = pos - cbegin();
+        _ptrs.insert(_ptrs.begin() + index, &chunk.back());
+        return iterator{_ptrs.data() + index};
+    }
+
+    iterator insert(const_iterator pos, T&& value) {
+        vec<T>& chunk = suitable_chunck(1);
+        chunk.push_back(std::move(value));
+        const size_type index = pos - cbegin();
+        _ptrs.insert(_ptrs.begin() + index, &chunk.back());
+        return iterator{_ptrs.data() + index};
+    }
+
+    iterator insert(const_iterator pos, size_type n, const_reference value) {
+        vec<T>& chunk = suitable_chunck(n);
+        const size_type index = pos - cbegin();
+        _ptrs.resize(_ptrs.size() + n);
+        // move the elements after pos
+        for (auto i = _ptrs.size() - 1; i >= index + n; --i) {
+            _ptrs[i] = _ptrs[i - n];
+        }
+        // insert the new elements
+        for (auto i = 0; i < n; ++i) {
+            chunk.push_back(value);
+            _ptrs[index + i] = &chunk.back();
+        }
+        return iterator{_ptrs.data() + index};
+    }
+
+    iterator insert(const_iterator pos, std::initializer_list<T> il) {
+        vec<T>& chunk = suitable_chunck(il.size());
+        const size_type index = pos - cbegin();
+        _ptrs.resize(_ptrs.size() + il.size());
+        // move the elements after pos
+        for (auto i = _ptrs.size() - 1; i >= index + il.size(); --i) {
+            _ptrs[i] = _ptrs[i - il.size()];
+        }
+        // insert the new elements
+        for (auto it = il.begin(); it != il.end(); ++it) {
+            chunk.push_back(*it);
+            _ptrs[index + (it - il.begin())] = &chunk.back();
+        }
+        return iterator{_ptrs.data() + index};
+    }
+    // using template to represent any type of iterator
+    // but we need to add
+    template< class InputIt>
+    iterator insert(const_iterator pos, is_input_iterator_t<InputIt> first, InputIt last) {
+        if(first == last) { return iterator{_ptrs.data() + (pos - cbegin())}; }
+        if constexpr (!std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>) {
+            std::vector<T> tmp{first, last};
+            return insert(pos, tmp.begin(), tmp.end());
+        } else {
+            const size_type n = std::distance(first, last);
+            vec<T>& chunk = suitable_chunck(n);
+            const size_type index = pos - cbegin();
+            _ptrs.resize(_ptrs.size() + n);
+            // move the elements after pos
+            for (auto i = _ptrs.size() - 1; i >= index + n; --i) {
+                _ptrs[i] = _ptrs[i - n];
+            }
+            // insert the new elements
+            for (auto it = first; it != last; ++it) {
+                chunk.push_back(*it);
+                _ptrs[index + (it - first)] = &chunk.back();
+            }
+            return iterator{_ptrs.data() + index};
+        }
+    }
+
 
     void swap(pyvec& other) noexcept {
         std::swap(_resources, other._resources);
@@ -543,6 +653,67 @@ public:
     [[nodiscard]] bool operator>(const pyvec<T>& other) const { return other < *this; }
     [[nodiscard]] bool operator<=(const pyvec<T>& other) const { return !(other < *this); }
     [[nodiscard]] bool operator>=(const pyvec<T>& other) const { return !(*this < other); }
+    /*
+     *  Python like iterface
+     */
+    void append(const_reference value) { push_back(value); }
+    void append(T&& value) { push_back(std::move(value)); }
+
+    void extend(const pyvec& other) {
+        ref_other(other);
+        _ptrs.reserve(_ptrs.size() + other.size());
+        for(const auto& ptr: other._ptrs) {
+            _ptrs.push_back(ptr);
+        }
+    }
+
+    shared<T> getitem(const difference_type i) { return share(i); }
+
+    pyvec<T> getitem(const difference_type begin, const difference_type end, const difference_type step=1) const {
+        return slice(begin, end, step);
+    }
+
+    void delitem(const difference_type i) { erase(cbegin() + py_index(i)); }
+
+    void delitem(const difference_type begin, const difference_type end, const difference_type step=1) {
+        const auto t_slice = py_slice(begin, end, step);
+        // using filter
+        if(t_slice.num_step <= 0) { return; }
+        std::vector<pointer> new_ptrs;
+        new_ptrs.reserve(size() - t_slice.num_step);
+        for(auto i = 0; i < size(); ++i) {
+            if(i < t_slice.l | i >= t_slice.r | (i - t_slice.l) % t_slice.step != 0) {
+                new_ptrs.push_back(_ptrs[i]);
+            }
+        }
+        _ptrs = std::move(new_ptrs);
+    }
+
+    size_type index(const_reference value) const {
+        for(auto i = 0; i < size(); ++i) {
+            if(*_ptrs[i] == value) { return i; }
+        }   throw std::runtime_error("pyvec::index: value is not in the list");
+    }
+
+    size_type count(const_reference value) const {
+        size_type ans = 0;
+        for(const auto& ptr: _ptrs) {
+            if(*ptr == value) { ++ans; }
+        }   return ans;
+    }
+
+    void insert(difference_type pos, const_reference value) { insert(cbegin() + pos, value); }
+
+    shared<T> pop() {
+        auto ans = share(size() - 1);
+        pop_back();
+        return ans;
+    }
+
+    void reverse() {
+        std::reverse(_ptrs.begin(), _ptrs.end());
+    }
+
 };
 
 #endif // PY_VEC_HPP_

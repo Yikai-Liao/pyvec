@@ -2,15 +2,30 @@
 // Created by lyk on 24-3-9.
 //
 #include "pyvec.hpp"
-
+#include <list>
 #include <catch2/catch_test_macros.hpp>
-
+#include <iostream>
 
 TEST_CASE("pyvec basic editing", "[pyvec]") {
     pyvec<int> v { 1, 2, 3, 4, 5 };
     REQUIRE(v.size() == 5);
     REQUIRE(v.capacity() >= 5);
     REQUIRE(v.collect() == std::vector<int>{1, 2, 3, 4, 5});
+
+    SECTION("constructors") {
+        std::vector<int> tmp_vec{1,2,3,4,5};
+        pyvec<int> tmp1(tmp_vec.begin(), tmp_vec.end());
+        REQUIRE(tmp1.collect() == tmp_vec);
+        pyvec<int> tmp2(tmp1);
+        REQUIRE(tmp2.collect() == tmp_vec);
+        pyvec<int>tmp3(std::move(tmp2));
+        REQUIRE(tmp3.collect() == tmp_vec);
+        std::list<int> tmp_list{1,2,3,4,5};
+        pyvec<int> tmp4(tmp_list.begin(), tmp_list.end());
+        REQUIRE(tmp4.collect() == tmp_vec);
+        pyvec<int> tmp5(tmp4.begin(), tmp4.end());
+        REQUIRE(tmp5.collect() == tmp_vec);
+    }
 
     SECTION("push_back and emplace_back") {
         v.push_back(6);
@@ -26,6 +41,28 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         auto iter = v.emplace(v.begin() + 2, 6);
         REQUIRE(*iter == 6);
         REQUIRE(v.collect() == std::vector<int>{1,2,6,3,4,5});
+        iter = v.insert(v.begin() + 3, 7);
+        REQUIRE(*iter == 7);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,3,4,5});
+        iter = v.insert(v.begin() + 4, 3, 8);
+        REQUIRE(*iter == 8);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,8,8,3,4,5});
+        iter = v.insert(v.begin() + 5, {9,10,11});
+        REQUIRE(*iter == 9);
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,10,11,8,8,3,4,5});
+        {
+            std::vector<int> tmp {12,13,14};
+            iter = v.insert(v.begin() + 6, tmp.begin(), tmp.end());
+            REQUIRE(*iter == 12);
+            REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,12,13,14,10,11,8,8,3,4,5});
+        }
+        {
+            std::list<int> tmp {15,16,17};
+            iter = v.insert(v.begin() + 7, tmp.begin(), tmp.end());
+            REQUIRE(*iter == 15);
+            REQUIRE(v.collect() == std::vector<int>{1,2,6,7,8,9,12,15,16,17,13,14,10,11,8,8,3,4,5});
+        }
+
     }
 
     SECTION("swap") {
@@ -66,7 +103,7 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
     }
 }
 
-TEST_CASE("Comparison Operator", "[pyvec]") {
+TEST_CASE("comparison operators", "[pyvec]") {
     pyvec<int> v1 {1,2,3,4,5};
     pyvec<int> v2 {1,2,3,4,5};
     pyvec<int> v3 {1,2,3,4,6};
@@ -100,13 +137,67 @@ TEST_CASE("Comparison Operator", "[pyvec]") {
     REQUIRE(v5 >= v1);
 }
 
-TEST_CASE("Slice using shallow copy", "[pyvec]") {
+TEST_CASE("memory stability", "[pyvec]") {
     pyvec<int> v {1,2,3,4,5};
-    pyvec<int> v1 = v.slice(1, 3);
-    REQUIRE(v1.collect() == std::vector<int>{2,3});
-    REQUIRE(v1.capacity() == 0);
-    REQUIRE(v1.size() == 2);
-    v1.push_back(1);
-    REQUIRE(v1.collect() == std::vector<int>{2,3,1});
-    REQUIRE(v1.capacity() > 1);
+    std::vector<int*> ptrs(5);
+    for (int i = 0; i < 5; ++i) {
+        ptrs[i] = &v[i];
+    }
+    SECTION("append & remove") {
+        for (int i = 0; i < 100; ++i) {
+            v.push_back(i);
+            v.emplace_back(i);
+        }
+        for (int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        for(int i = 0; i < 50; ++i) {
+            v.pop_back();
+        }
+        for (int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        for(int i = 0; i < 20; ++i) {
+            v.erase(v.end() - 1);
+        }
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+    }
+
+    SECTION("capacity") {
+        v.reserve(1000);
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        v.shrink_to_fit();
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        v.resize(1000);
+        for(int i = 0; i < 5; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+        v.resize(2);
+        for(int i = 0; i < 2; ++i) {
+            REQUIRE(*ptrs[i] == i+1);
+            REQUIRE(ptrs[i] == &v[i]);
+        }
+    }
+
+    SECTION("sort") {
+        auto slice = v.slice(0, 5);
+        std::sort(v.pbegin(), v.pend(), [](const int* a, const int* b) { return *a > *b; });
+        REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
+        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});
+        std::sort(v.pbegin(), v.pend(), [](const int* a, const int* b) { return *a < *b; });
+        REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
+        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});
+        std::sort(v.begin(), v.end(), [](int a, int b) { return a > b; });
+        REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
+        REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});
+    }
 }
