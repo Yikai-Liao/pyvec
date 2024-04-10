@@ -79,18 +79,23 @@ public:
     /*
      *  Pyhton-List-Like Interface
      */
-
+    void append(const T& value);
     void append(const shared<T>& value);
 
+    size_type count(const T& value) const;
     size_type count(const shared<T>& value) const;
 
     // deepcopy when extend
+    template<typename InputIt>
+    void extend(is_input_iterator_t<InputIt> first, InputIt last);
     void extend(const pyvec<T>& other);
 
+    void insert(difference_type index, const T& value);
     void insert(difference_type index, const shared<T>& value);
 
     shared<T> pop(difference_type index = -1);
 
+    void remove(const T& value);
     void remove(const shared<T>& value);
 
     void reverse();
@@ -120,8 +125,11 @@ public:
      *  __getitem__, __setitem__, __delitem__, __contains__
      */
 
+    void setitem(difference_type index, const T& value);
     void setitem(difference_type index, const shared<T>& value);
 
+    template<typename InputIt>
+    void setitem(const slice& t_slice, is_input_iterator_t<InputIt> first, InputIt last);
     void setitem(const slice& t_slice, const pyvec<T>& other);
 
     shared<T> getitem(difference_type index);
@@ -133,6 +141,7 @@ public:
 
     void delitem(const slice& t_slice);
 
+    bool contains(const T& value) const;
     bool contains(const shared<T>& value) const;
 
     /*
@@ -941,17 +950,33 @@ bool pyvec<T>::operator>=(const pyvec<T>& other) const {
  */
 
 template<typename T>
+void pyvec<T>::append(const T& value) {
+    push_back(value);
+}
+
+template<typename T>
 void pyvec<T>::append(const shared<T>& value) {
     push_back(*value);
 }
 
 template<typename T>
-size_t pyvec<T>::count(const shared<T>& value) const {
+size_t pyvec<T>::count(const T& value) const {
     size_t cnt = 0;
     for (auto& item : _ptrs) {
-        if (*item == *value) ++cnt;
+        if (*item == value) ++cnt;
     }
     return cnt;
+}
+
+template<typename T>
+size_t pyvec<T>::count(const shared<T>& value) const {
+    return count(*value);
+}
+
+template<typename T>
+template<typename InputIt>
+void pyvec<T>::extend(is_input_iterator_t<InputIt> first, InputIt last) {
+    insert(cend(), first, last);
 }
 
 template<typename T>
@@ -988,8 +1013,13 @@ std::shared_ptr<T> pyvec<T>::share(size_type index) {
 }
 
 template<typename T>
+void pyvec<T>::insert(const difference_type index, const T& value) {
+    insert(cbegin() + pypos(index), value);
+}
+
+template<typename T>
 void pyvec<T>::insert(const difference_type index, const shared<T>& value) {
-    insert(cbegin() + pypos(index), *value);
+    insert(index, *value);
 }
 
 template<typename T>
@@ -1001,15 +1031,20 @@ std::shared_ptr<T> pyvec<T>::pop(const difference_type index) {
 }
 
 template<typename T>
-void pyvec<T>::remove(const shared<T>& value) {
+void pyvec<T>::remove(const T& value) {
     // remove the first occurrence of value
     for (auto it = begin(); it != end(); ++it) {
-        if (*it == *value) {
+        if (*it == value) {
             _ptrs.erase(_ptrs.begin() + std::distance(begin(), it));
             return;
         }
     }
     throw std::invalid_argument("pyvec::remove: value not found");
+}
+
+template<typename T>
+void pyvec<T>::remove(const shared<T>& value) {
+    remove(*value);
 }
 
 template<typename T>
@@ -1092,19 +1127,26 @@ typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) cons
 }
 
 template<typename T>
-void pyvec<T>::setitem(const difference_type index, const shared<T>& value) {
+void pyvec<T>::setitem(const difference_type index, const T& value) {
     const auto pos   = pypos(index);
     auto&      chunk = suitable_chunk(1);
-    chunk.push_back(*value);
+    chunk.push_back(value);
     _ptrs[pos] = &chunk.back();
 }
 
 template<typename T>
-void pyvec<T>::setitem(const slice& t_slice, const pyvec<T>& other) {
-    auto s = build_slice(t_slice);
-    if(s.step == 1) {
+void pyvec<T>::setitem(const difference_type index, const shared<T>& value) {
+    setitem(index, *value);
+}
+
+template<typename T>
+template<typename InputIt>
+void pyvec<T>::setitem(const slice& t_slice, is_input_iterator_t<InputIt> first, InputIt last) {
+    auto      s          = build_slice(t_slice);
+    size_type other_size = std::distance(first, last);
+    if (s.step == 1) {
         difference_type delta =
-            static_cast<difference_type>(other.size()) - static_cast<difference_type>(s.num_steps);
+            static_cast<difference_type>(other_size) - static_cast<difference_type>(s.num_steps);
         if (delta > 0) {
             insert_empty(cbegin() + s.start + s.num_steps, delta);
         } else if (delta < 0) {
@@ -1113,23 +1155,28 @@ void pyvec<T>::setitem(const slice& t_slice, const pyvec<T>& other) {
             );
         }
 
-        auto&  chunk = suitable_chunk(other.size());
+        auto&  chunk = suitable_chunk(other_size);
         size_t pivot = s.start;
-        for (auto& item : other) {
-            chunk.push_back(item);
+        for (auto it = first; it != last; ++it) {
+            chunk.push_back(*it);
             _ptrs[pivot++] = &chunk.back();
         }
-    } else if (s.num_steps == other.size()) {
-        auto& chunk = suitable_chunk(s.num_steps);
+    } else if (s.num_steps == other_size) {
+        auto&  chunk = suitable_chunk(s.num_steps);
         size_t pivot = s.start;
-        for (auto& item : other) {
-            chunk.push_back(item);
+        for (auto it = first; it != last; ++it) {
+            chunk.push_back(*it);
             _ptrs[pivot] = &chunk.back();
             pivot += s.step;
         }
     } else {
         throw std::invalid_argument("pyvec::setitem: incompatible slice and sequence");
     }
+}
+
+template<typename T>
+void pyvec<T>::setitem(const slice& t_slice, const pyvec<T>& other) {
+    setitem(t_slice, other.cbegin(), other.cend());
 }
 
 template<typename T>
@@ -1186,10 +1233,15 @@ void pyvec<T>::delitem(const slice& t_slice) {
 }
 
 template<typename T>
-bool pyvec<T>::contains(const shared<T>& value) const {
-    auto check = [&value](const pointer& ptr) { return *ptr == *value; };
+bool pyvec<T>::contains(const T& value) const {
+    auto check = [&value](const pointer& ptr) { return *ptr == value; };
     if (std::any_of(_ptrs.begin(), _ptrs.end(), check)) { return true; }
     return false;
+}
+
+template<typename T>
+bool pyvec<T>::contains(const shared<T>& value) const {
+    return contains(*value);
 }
 
 /*
