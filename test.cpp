@@ -243,23 +243,23 @@ TEST_CASE("python interface") {
         REQUIRE(v.collect() == std::vector<int>{1,2,6,4,5});
 
         // if step is not 1, the size of the input vector should be the same as the size of the slice
-        v.setitem({0, 4, 2}, pyvec<int>{10, 20});
+        v.setitem({0, 4, 2}, {10, 20});
         REQUIRE(v.collect() == std::vector<int>{10,2,20,4,5});
 
         // if step is 1, the size of the input vector should be the same as the size of the slice
-        v.setitem({0, 1, 1}, pyvec<int>{10, 20, 30, 40});
+        v.setitem({0, 1, 1}, {10, 20, 30, 40});
         REQUIRE(v.collect() == std::vector<int>{10, 20, 30, 40, 2, 20, 4, 5});
 
-        v.setitem({1, 1, 1}, pyvec<int>{11, 12});
+        v.setitem({1, 1, 1}, {11, 12});
         REQUIRE(v.collect() == std::vector<int>{10, 11, 12, 20, 30, 40, 2, 20, 4, 5});
 
-        v.setitem({-1, 0, -1}, pyvec{1,2,3,4,5,6,7,8,9});
+        v.setitem({-1, 0, -1}, {1,2,3,4,5,6,7,8,9});
         REQUIRE(v.collect() == std::vector<int>{10, 9, 8, 7, 6, 5, 4, 3, 2, 1});
 
-        v.setitem({nullopt, nullopt, nullopt}, pyvec{1,2,3,4,5});
+        v.setitem({nullopt, nullopt, nullopt}, {1,2,3,4,5});
         REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
 
-        v.setitem({nullopt, nullopt, -1}, pyvec{1,2,3,4,5});
+        v.setitem({nullopt, nullopt, -1}, {1,2,3,4,5});
         REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
     }
 }
