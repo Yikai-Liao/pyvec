@@ -191,14 +191,25 @@ TEST_CASE("memory stability", "[pyvec]") {
 
     SECTION("sort") {
         auto slice = v.getitem({0, 5, 1});
+
         std::sort(v.pbegin(), v.pend(), [](const int* a, const int* b) { return *a > *b; });
         REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
-        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});
+        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});    // sort using piter does not affect slice
+
         std::sort(v.pbegin(), v.pend(), [](const int* a, const int* b) { return *a < *b; });
         REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
-        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});
+        REQUIRE(slice.collect() == std::vector<int>{1,2,3,4,5});    // sort using piter does not affect slice
+
         std::sort(v.begin(), v.end(), [](int a, int b) { return a > b; });
         REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
-        REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});
+        REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});    // sort using iter does affect slice
+
+        v.sort(false, [](const auto & a) -> const auto & { return a; });
+        REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
+        REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});    // member function sort does not affect slice
+
+        v.sort(true);
+        REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
+        REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});    // member function sort does not affect slice
     }
 }
