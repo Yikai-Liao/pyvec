@@ -121,8 +121,17 @@ public:
     template<typename Func>
     void filter(Func func);
 
-    size_t index(const shared<T>& value, difference_type start = 0) const;
-    size_t index(const shared<T>& value, difference_type start, difference_type stop) const;
+    size_t index(
+        const T&                       value,
+        std::optional<difference_type> start = std::nullopt,
+        std::optional<difference_type> stop  = std::nullopt
+    ) const;
+
+    size_t index(
+        const shared<T>&               value,
+        std::optional<difference_type> start = std::nullopt,
+        std::optional<difference_type> stop  = std::nullopt
+    ) const;
 
     /*
      *  Python Magic Method
@@ -1098,20 +1107,28 @@ void pyvec<T>::filter(Func func) {
 }
 
 template<typename T>
-size_t pyvec<T>::index(const shared<T>& value, const difference_type start) const {
-    return index(value, start, size());
+size_t pyvec<T>::index(
+    const T&                             value,
+    const std::optional<difference_type> start,
+    const std::optional<difference_type> stop
+) const {
+    const auto      left  = pypos(start.value_or(0));
+    difference_type right = stop.value_or(size());
+
+    right = right >= size() ? size() : pypos(right);
+    for (auto i = left; i < right; ++i) {
+        if (*_ptrs[i] == value) { return i; }
+    }
+    throw std::invalid_argument("pyvec::index: value not found");
 }
 
 template<typename T>
 size_t pyvec<T>::index(
-    const shared<T>& value, const difference_type start, const difference_type stop
+    const shared<T>&                     value,
+    const std::optional<difference_type> start,
+    const std::optional<difference_type> stop
 ) const {
-    const auto left  = pypos(start);
-    const auto right = stop == size() ? size() : pypos(stop);
-    for (auto i = left; i < right; ++i) {
-        if (*_ptrs[i] == *value) { return i; }
-    }
-    throw std::invalid_argument("pyvec::index: value not found");
+    return index(*value, start, stop);
 }
 
 /*
@@ -1119,11 +1136,11 @@ size_t pyvec<T>::index(
  */
 template<typename T>
 typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) const {
-    const difference_type step         = t_slice.step.value_or(1);
+    const difference_type step = t_slice.step.value_or(1);
     if (step == 0) { throw std::invalid_argument("slice::step == 0"); }
-    const difference_type start        = pypos(t_slice.start.value_or(0));
-    difference_type stop = t_slice.stop.value_or(step > 0 ? size() : -1);
-    stop = stop >= size() ? size() : pypos(stop);
+    const difference_type start = pypos(t_slice.start.value_or(0));
+    difference_type       stop  = t_slice.stop.value_or(step > 0 ? size() : -1);
+    stop                        = stop >= size() ? size() : pypos(stop);
 
     difference_type num_steps = (stop - start) / step;
     if (num_steps < 0) { num_steps = 0; }
