@@ -291,11 +291,11 @@ private:
 
     void try_init();
 
-    vec<T>& new_chunck(size_type n);
+    vec<T>& new_chunk(size_type n);
 
-    vec<T>& add_chunck(vec<T>&& chunck);
+    vec<T>& add_chunk(vec<T>&& chunk);
 
-    [[nodiscard]] vec<T>& suitable_chunck(size_type expected_size);
+    [[nodiscard]] vec<T>& suitable_chunk(size_type expected_size);
 
     size_type insert_empty(const_iterator pos, size_type count);
 
@@ -456,9 +456,9 @@ void pyvec<T>::move_assign(pyvec<T>&& other) {
 template<typename T>
 void pyvec<T>::move_assign(vec<T>&& other) {
     clear();
-    auto& chunck = add_chunck(std::move(other));
-    _ptrs.reserve(chunck.size());
-    for (auto& item : chunck) { _ptrs.push_back(&item); }
+    auto& chunk = add_chunk(std::move(other));
+    _ptrs.reserve(chunk.size());
+    for (auto& item : chunk) { _ptrs.push_back(&item); }
 }
 
 template<typename T>
@@ -468,37 +468,37 @@ void pyvec<T>::try_init() {
 }
 
 template<typename T>
-std::vector<T>& pyvec<T>::new_chunck(size_type n) {
+std::vector<T>& pyvec<T>::new_chunk(size_type n) {
     _resources->emplace_back();
-    auto& chunck = _resources->back();
-    chunck.reserve(n);
+    auto& chunk = _resources->back();
+    chunk.reserve(n);
     *_capacity += n;
-    return chunck;
+    return chunk;
 }
 
 template<typename T>
-std::vector<T>& pyvec<T>::add_chunck(vec<T>&& chunck) {
-    *_capacity += chunck.capacity();
-    _resources->emplace_back(std::move(chunck));
+std::vector<T>& pyvec<T>::add_chunk(vec<T>&& chunk) {
+    *_capacity += chunk.capacity();
+    _resources->emplace_back(std::move(chunk));
     return _resources->back();
 }
 
 template<typename T>
-std::vector<T>& pyvec<T>::suitable_chunck(size_type expected_size) {
+std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
     if (expected_size == 0) { throw std::invalid_argument("pyvec: expected_size == 0"); }
     try_init();
     vec<T>* ans = nullptr;
     for (auto i = _chunk_pivot; i < _resources->size(); ++i) {
-        auto&      chunck    = _resources->operator[](i);
-        const auto remaining = chunck.capacity() - chunck.size();
+        auto&      chunk    = _resources->operator[](i);
+        const auto remaining = chunk.capacity() - chunk.size();
         if (remaining >= expected_size) {
-            ans = &chunck;
+            ans = &chunk;
             break;
         }
     }
     if (ans == nullptr) {
         const auto expanded = std::max(expected_size, std::max(*_capacity, min_chunk_size));
-        ans                 = &new_chunck(expanded);
+        ans                 = &new_chunk(expanded);
     }
     _chunk_pivot = expected_size == 1 ? ans - _resources->data() : _chunk_pivot;
     return *ans;
@@ -584,20 +584,20 @@ pyvec<T>& pyvec<T>::operator=(pyvec<T>&& other) noexcept {
 template<typename T>
 void pyvec<T>::assign(size_type count, const T& value) {
     clear();
-    auto& chunck = suitable_chunck(count);
-    chunck.assign(count, value);
+    auto& chunk = suitable_chunk(count);
+    chunk.assign(count, value);
     _ptrs.reserve(count);
-    for (auto& item : chunck) { _ptrs.push_back(&item); }
+    for (auto& item : chunk) { _ptrs.push_back(&item); }
 }
 
 template<typename T>
 template<class InputIt>
 void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     clear();
-    auto  tmp_chunck = vec<T>(first, last);
-    auto& chunck     = add_chunck(std::move(tmp_chunck));
-    _ptrs.reserve(chunck.size());
-    for (auto& item : chunck) { _ptrs.push_back(&item); }
+    auto  tmp_chunk = vec<T>(first, last);
+    auto& chunk     = add_chunk(std::move(tmp_chunk));
+    _ptrs.reserve(chunk.size());
+    for (auto& item : chunk) { _ptrs.push_back(&item); }
 }
 
 template<typename T>
@@ -713,7 +713,7 @@ template<typename T>
 void pyvec<T>::reserve(size_type new_cap) {
     if (const auto delta = new_cap - capacity(); delta > 0) {
         _ptrs.reserve(std::max(new_cap, _ptrs.size() + delta));
-        new_chunck(std::max(min_chunk_size, delta));
+        new_chunk(std::max(min_chunk_size, delta));
     }
 }
 
@@ -748,7 +748,7 @@ void pyvec<T>::clear() {
 template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(const const_iterator pos, const T& value) {
     const auto idx   = insert_empty(pos, 1);
-    auto&      chunk = suitable_chunck(1);
+    auto&      chunk = suitable_chunk(1);
     chunk.push_back(value);
     _ptrs[idx] = &chunk.back();
     return iterator(_ptrs.data() + idx);
@@ -757,7 +757,7 @@ typename pyvec<T>::iterator pyvec<T>::insert(const const_iterator pos, const T& 
 template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(const const_iterator pos, T&& value) {
     const auto idx   = insert_empty(pos, 1);
-    auto&      chunk = suitable_chunck(1);
+    auto&      chunk = suitable_chunk(1);
     chunk.push_back(value);
     _ptrs[idx] = &chunk.back();
     return iterator(_ptrs.data() + idx);
@@ -768,7 +768,7 @@ typename pyvec<T>::iterator pyvec<T>::insert(
     const_iterator pos, const size_type count, const T& value
 ) {
     const auto idx   = insert_empty(pos, count);
-    auto&       chunk = suitable_chunck(count);
+    auto&       chunk = suitable_chunk(count);
     // insert the new elements
     for (auto i = idx; i < idx + count; ++i) {
         chunk.push_back(value);
@@ -792,7 +792,7 @@ typename pyvec<T>::iterator pyvec<T>::insert(
 ) {
     const auto count = std::distance(first, last);
     auto       idx   = insert_empty(pos, count);
-    auto&       chunk = suitable_chunck(count);
+    auto&       chunk = suitable_chunk(count);
     size_t pivot = idx;
     for (auto it = first; it != last; ++it) {
         chunk.push_back(*it);
@@ -805,7 +805,7 @@ template<typename T>
 template<class... Args>
 typename pyvec<T>::iterator pyvec<T>::emplace(const const_iterator pos, Args&&... args) {
     const auto idx   = insert_empty(pos, 1);
-    auto&      chunk = suitable_chunck(1);
+    auto&      chunk = suitable_chunk(1);
     chunk.emplace_back(std::forward<Args>(args)...);
     _ptrs[idx] = &chunk.back();
     return iterator(_ptrs.data() + idx);
@@ -832,14 +832,14 @@ typename pyvec<T>::iterator pyvec<T>::erase(const_iterator first, const_iterator
 
 template<typename T>
 void pyvec<T>::push_back(const T& value) {
-    auto& chunk = suitable_chunck(1);
+    auto& chunk = suitable_chunk(1);
     chunk.push_back(value);
     _ptrs.push_back(&chunk.back());
 }
 
 template<typename T>
 void pyvec<T>::push_back(T&& value) {
-    auto& chunk = suitable_chunck(1);
+    auto& chunk = suitable_chunk(1);
     chunk.push_back(value);
     _ptrs.push_back(&chunk.back());
 }
@@ -847,7 +847,7 @@ void pyvec<T>::push_back(T&& value) {
 template<typename T>
 template<class... Args>
 typename pyvec<T>::reference pyvec<T>::emplace_back(Args&&... args) {
-    auto& chunk = suitable_chunck(1);
+    auto& chunk = suitable_chunk(1);
     chunk.emplace_back(std::forward<Args>(args)...);
     _ptrs.push_back(&chunk.back());
     return chunk.back();
@@ -863,7 +863,7 @@ template<typename T>
 void pyvec<T>::resize(size_type count) {
     if (count <= size()) { return _ptrs.resize(count); }
     const auto delta = count - size();
-    auto&      chunk = suitable_chunck(delta);
+    auto&      chunk = suitable_chunk(delta);
     auto       idx   = chunk.size();
     chunk.resize(idx + delta);
     _ptrs.reserve(count);
@@ -874,7 +874,7 @@ template<typename T>
 void pyvec<T>::resize(size_type count, const T& value) {
     if (count <= size()) { return _ptrs.resize(count); }
     const auto delta = count - size();
-    auto&      chunk = suitable_chunck(delta);
+    auto&      chunk = suitable_chunk(delta);
     auto       idx   = chunk.size();
     chunk.resize(idx + delta, value);
     _ptrs.reserve(count);
@@ -1090,7 +1090,7 @@ typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) cons
 template<typename T>
 void pyvec<T>::setitem(const difference_type index, const shared<T>& value) {
     const auto pos   = pypos(index);
-    auto&      chunk = suitable_chunck(1);
+    auto&      chunk = suitable_chunk(1);
     chunk.push_back(*value);
     _ptrs[pos] = &chunk.back();
 }
@@ -1102,7 +1102,7 @@ void pyvec<T>::setitem(const slice& t_slice, const pyvec<T>& other) {
         throw std::invalid_argument("pyvec::setitem: size mismatch");
     }
     if (s.num_steps == 0) { return; }
-    auto&  chunk = suitable_chunck(s.num_steps);
+    auto&  chunk = suitable_chunk(s.num_steps);
     size_t pivot = s.start;
     for (size_t i = 0; i < s.num_steps; ++i) {
         chunk.emplace_back(other[pivot]);
