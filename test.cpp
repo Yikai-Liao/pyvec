@@ -213,3 +213,33 @@ TEST_CASE("memory stability", "[pyvec]") {
         REQUIRE(slice.collect() == std::vector<int>{5,4,3,2,1});    // member function sort does not affect slice
     }
 }
+
+TEST_CASE("python interface") {
+    pyvec<int> v {1,2,3,4,5};
+
+    SECTION("basic operation") {
+        auto a = v.getitem(2);
+        REQUIRE(*a == 3);
+        auto s1 = v.getitem({1, 4, 1});
+        REQUIRE(s1.collect() == std::vector<int>{2,3,4});
+        auto s2 = v.getitem({1, 4, 2});
+        REQUIRE(s2.collect() == std::vector<int>{2,4});
+
+        v.setitem(2, std::make_shared<int>(6));
+        REQUIRE(v.collect() == std::vector<int>{1,2,6,4,5});
+
+        // if step is not 1, the size of the input vector should be the same as the size of the slice
+        v.setitem({0, 4, 2}, pyvec<int>{10, 20});
+        REQUIRE(v.collect() == std::vector<int>{10,2,20,4,5});
+
+        // if step is 1, the size of the input vector should be the same as the size of the slice
+        v.setitem({0, 1, 1}, pyvec<int>{10, 20, 30, 40});
+        REQUIRE(v.collect() == std::vector<int>{10, 20, 30, 40, 2, 20, 4, 5});
+
+        v.setitem({1, 1, 1}, pyvec<int>{11, 12});
+        REQUIRE(v.collect() == std::vector<int>{10, 11, 12, 20, 30, 40, 2, 20, 4, 5});
+
+        v.setitem({-1, 0, -1}, pyvec{1,2,3,4,5,6,7,8,9});
+        REQUIRE(v.collect() == std::vector<int>{10, 9, 8, 7, 6, 5, 4, 3, 2, 1});
+    }
+}

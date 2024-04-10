@@ -430,6 +430,10 @@ public:
         return tmp;
     }
 
+    const_iterator operator+(difference_type i) const { return const_iterator{_ptr + i}; }
+
+    const_iterator operator-(difference_type i) const { return const_iterator{_ptr - i}; }
+
     difference_type operator-(const const_iterator& other) const { return _ptr - other._ptr; }
 
     // operator <=>
@@ -489,7 +493,7 @@ std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
     try_init();
     vec<T>* ans = nullptr;
     for (auto i = _chunk_pivot; i < _resources->size(); ++i) {
-        auto&      chunk    = _resources->operator[](i);
+        auto&      chunk     = _resources->operator[](i);
         const auto remaining = chunk.capacity() - chunk.size();
         if (remaining >= expected_size) {
             ans = &chunk;
@@ -768,7 +772,7 @@ typename pyvec<T>::iterator pyvec<T>::insert(
     const_iterator pos, const size_type count, const T& value
 ) {
     const auto idx   = insert_empty(pos, count);
-    auto&       chunk = suitable_chunk(count);
+    auto&      chunk = suitable_chunk(count);
     // insert the new elements
     for (auto i = idx; i < idx + count; ++i) {
         chunk.push_back(value);
@@ -792,8 +796,8 @@ typename pyvec<T>::iterator pyvec<T>::insert(
 ) {
     const auto count = std::distance(first, last);
     auto       idx   = insert_empty(pos, count);
-    auto&       chunk = suitable_chunk(count);
-    size_t pivot = idx;
+    auto&      chunk = suitable_chunk(count);
+    size_t     pivot = idx;
     for (auto it = first; it != last; ++it) {
         chunk.push_back(*it);
         _ptrs[pivot++] = &chunk.back();
@@ -823,7 +827,7 @@ template<typename T>
 typename pyvec<T>::iterator pyvec<T>::erase(const_iterator first, const_iterator last) {
     const auto left  = std::distance(cbegin(), first);
     const auto right = std::distance(cbegin(), last);
-    if (left >= _ptrs.size() || left<0 || right> _ptrs.size() || right < 0) {
+    if (left >= _ptrs.size() || left < 0 || right > _ptrs.size() || right < 0) {
         throw std::out_of_range("pyvec::erase");
     }
     _ptrs.erase(_ptrs.begin() + left, _ptrs.begin() + right);
@@ -1098,16 +1102,33 @@ void pyvec<T>::setitem(const difference_type index, const shared<T>& value) {
 template<typename T>
 void pyvec<T>::setitem(const slice& t_slice, const pyvec<T>& other) {
     auto s = build_slice(t_slice);
-    if (s.num_steps != other.size()) {
-        throw std::invalid_argument("pyvec::setitem: size mismatch");
-    }
-    if (s.num_steps == 0) { return; }
-    auto&  chunk = suitable_chunk(s.num_steps);
-    size_t pivot = s.start;
-    for (size_t i = 0; i < s.num_steps; ++i) {
-        chunk.emplace_back(other[pivot]);
-        _ptrs[pivot] = &chunk.back();
-        pivot += s.step;
+    if(s.step == 1) {
+        difference_type delta =
+            static_cast<difference_type>(other.size()) - static_cast<difference_type>(s.num_steps);
+        if (delta > 0) {
+            insert_empty(cbegin() + s.start + s.num_steps, delta);
+        } else if (delta < 0) {
+            _ptrs.erase(
+                _ptrs.begin() + s.start + s.num_steps + delta, _ptrs.begin() + s.start + s.num_steps
+            );
+        }
+
+        auto&  chunk = suitable_chunk(other.size());
+        size_t pivot = s.start;
+        for (auto& item : other) {
+            chunk.push_back(item);
+            _ptrs[pivot++] = &chunk.back();
+        }
+    } else if (s.num_steps == other.size()) {
+        auto& chunk = suitable_chunk(s.num_steps);
+        size_t pivot = s.start;
+        for (auto& item : other) {
+            chunk.push_back(item);
+            _ptrs[pivot] = &chunk.back();
+            pivot += s.step;
+        }
+    } else {
+        throw std::invalid_argument("pyvec::setitem: incompatible slice and sequence");
     }
 }
 
