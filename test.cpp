@@ -7,6 +7,8 @@
 #include <iostream>
 #include <algorithm>
 
+using std::nullopt;
+
 TEST_CASE("pyvec basic editing", "[pyvec]") {
     pyvec<int> v { 1, 2, 3, 4, 5 };
     REQUIRE(v.size() == 5);
@@ -224,6 +226,18 @@ TEST_CASE("python interface") {
         REQUIRE(s1.collect() == std::vector<int>{2,3,4});
         auto s2 = v.getitem({1, 4, 2});
         REQUIRE(s2.collect() == std::vector<int>{2,4});
+        auto s3= v.getitem({nullopt, nullopt, nullopt});
+        REQUIRE(s3.collect() == std::vector<int>{1,2,3,4,5});
+        auto s4 = v.getitem({nullopt, 4, nullopt});
+        REQUIRE(s4.collect() == std::vector<int>{1,2,3,4});
+        auto s5 = v.getitem({1, nullopt, nullopt});
+        REQUIRE(s5.collect() == std::vector<int>{2,3,4,5});
+        auto s6 = v.getitem({nullopt, -1, nullopt});
+        REQUIRE(s6.collect() == std::vector<int>{1,2,3,4});
+        auto s7 = v.getitem({-3, -1, nullopt});
+        REQUIRE(s7.collect() == std::vector<int>{3,4,5});
+        auto s8 = v.getitem({nullopt, nullopt, -1});
+        REQUIRE(s8.collect() == std::vector<int>{5,4,3,2,1});
 
         v.setitem(2, std::make_shared<int>(6));
         REQUIRE(v.collect() == std::vector<int>{1,2,6,4,5});
@@ -241,5 +255,11 @@ TEST_CASE("python interface") {
 
         v.setitem({-1, 0, -1}, pyvec{1,2,3,4,5,6,7,8,9});
         REQUIRE(v.collect() == std::vector<int>{10, 9, 8, 7, 6, 5, 4, 3, 2, 1});
+
+        v.setitem({nullopt, nullopt, nullopt}, pyvec{1,2,3,4,5});
+        REQUIRE(v.collect() == std::vector<int>{1,2,3,4,5});
+
+        v.setitem({nullopt, nullopt, -1}, pyvec{1,2,3,4,5});
+        REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
     }
 }

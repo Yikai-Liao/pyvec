@@ -7,14 +7,18 @@
 #include <stdexcept>
 #include <algorithm>
 #include <iostream>
+#include <optional>
 
 
 
 struct slice {
-    ptrdiff_t start, stop, step;
+    std::optional<ptrdiff_t> start, stop, step;
 
-    slice(const ptrdiff_t start, const ptrdiff_t stop, const ptrdiff_t step) :
-        start(start), stop(stop), step(step) {}
+    slice(
+        const std::optional<ptrdiff_t> start,
+        const std::optional<ptrdiff_t> stop,
+        const std::optional<ptrdiff_t> step
+    ) : start(start), stop(stop), step(step) {}
 };
 
 template<class InputIt>
@@ -1115,15 +1119,15 @@ size_t pyvec<T>::index(
  */
 template<typename T>
 typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) const {
-    const auto start = pypos(t_slice.start);
-    const auto stop  = t_slice.stop == size() ? size() : pypos(t_slice.stop);
+    const difference_type step         = t_slice.step.value_or(1);
+    if (step == 0) { throw std::invalid_argument("slice::step == 0"); }
+    const difference_type start        = pypos(t_slice.start.value_or(0));
+    difference_type stop = t_slice.stop.value_or(step > 0 ? size() : -1);
+    stop = stop >= size() ? size() : pypos(stop);
 
-    if (t_slice.step == 0) { throw std::invalid_argument("slice::step == 0"); }
-
-    ptrdiff_t num_steps =
-        (static_cast<ptrdiff_t>(stop) - static_cast<ptrdiff_t>(start)) / t_slice.step;
+    difference_type num_steps = (stop - start) / step;
     if (num_steps < 0) { num_steps = 0; }
-    return {start, static_cast<size_t>(num_steps), t_slice.step};
+    return {static_cast<size_type>(start), static_cast<size_type>(num_steps), step};
 }
 
 template<typename T>
