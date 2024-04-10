@@ -261,5 +261,13 @@ TEST_CASE("python interface") {
 
         v.setitem({nullopt, nullopt, -1}, {1,2,3,4,5});
         REQUIRE(v.collect() == std::vector<int>{5,4,3,2,1});
+
+        v.delitem(2);
+        REQUIRE(v.collect() == std::vector<int>{5, 4, 2, 1});
+
+        v.delitem({1, 3, nullopt});
+        REQUIRE(v.collect() == std::vector<int>{5, 1});
+        v.delitem({nullopt, nullopt, -1});
+        REQUIRE(v.collect().empty());
     }
 }
