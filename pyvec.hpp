@@ -318,6 +318,9 @@ private:
 
     vec<T>& add_chunk(vec<T>&& chunk);
 
+    template<typename... Args>
+    vec<T>& emplace_chunk(Args&&... args);
+
     [[nodiscard]] vec<T>& suitable_chunk(size_type expected_size);
 
     size_type insert_empty(const_iterator pos, size_type count);
@@ -511,6 +514,14 @@ std::vector<T>& pyvec<T>::add_chunk(vec<T>&& chunk) {
 }
 
 template<typename T>
+template<typename... Args>
+std::vector<T>& pyvec<T>::emplace_chunk(Args&&... args) {
+    _resources->emplace_back(std::forward<Args>(args)...);
+    *_capacity += _resources->back().capacity();
+    return _resources->back();
+}
+
+template<typename T>
 std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
     if (expected_size == 0) { throw std::invalid_argument("pyvec: expected_size == 0"); }
     if (_last_chunk != nullptr) {
@@ -632,8 +643,7 @@ template<typename T>
 template<class InputIt>
 void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     clear();
-    auto  tmp_chunk = vec<T>(first, last);
-    auto& chunk     = add_chunk(std::move(tmp_chunk));
+    auto& chunk = emplace_chunk(first, last);
     _ptrs.reserve(chunk.size());
     for (auto& item : chunk) { _ptrs.push_back(&item); }
 }

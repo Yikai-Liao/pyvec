@@ -57,14 +57,14 @@ int main() {
         .run(
             "vector::deepcopy",
             [&]() {
-                std::vector<int> v2(v);
+                std::vector<int> v2(v.begin(), v.end());
                 nanobench::doNotOptimizeAway(v2);
             }
         )
         .run(
             "pyvec::deepcopy",
             [&]() {
-                pyvec<int> v2(pv);
+                pyvec<int> v2(v.begin(), v.end());
                 nanobench::doNotOptimizeAway(v2);
             }
         )
