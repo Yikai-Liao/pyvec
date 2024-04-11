@@ -812,7 +812,7 @@ template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(const const_iterator pos, T&& value) {
     const auto idx   = insert_empty(pos, 1);
     auto&      chunk = suitable_chunk(1);
-    chunk.push_back(value);
+    chunk.push_back(std::move(value));
     _ptrs[idx] = &chunk.back();
     return iterator(_ptrs.data() + idx);
 }
@@ -894,7 +894,7 @@ void pyvec<T>::push_back(const T& value) {
 template<typename T>
 void pyvec<T>::push_back(T&& value) {
     auto& chunk = suitable_chunk(1);
-    chunk.push_back(value);
+    chunk.push_back(std::move(value));
     _ptrs.push_back(&chunk.back());
 }
 

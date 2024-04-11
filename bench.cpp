@@ -21,7 +21,7 @@ int main() {
         .minEpochIterations(3000)
         .run(
             "vector::push_back",
-            [&]() {
+            [num]() {
                 std::vector<int> v;
                 v.reserve(num);
                 for (int i = 0; i < num; ++i) { v.push_back(i); }
@@ -30,7 +30,7 @@ int main() {
         )
         .run(
             "pyvec ::push_back",
-            [&]() {
+            [num]() {
                 pyvec<int> v{};
                 v.reserve(num);
                 for (int i = 0; i < num; ++i) { v.push_back(i); }
