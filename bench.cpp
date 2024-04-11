@@ -47,6 +47,7 @@ int main() {
         )
         .run("pyvec ::shallowcopy", [&]() { nanobench::doNotOptimizeAway(pv.copy()); })
         .run("pyvec ::deepcopy", [&]() { nanobench::doNotOptimizeAway(pv.deepcopy()); })
+        .run("pyvec ::collect", [&]() { nanobench::doNotOptimizeAway(pv.collect()); })
         .run(
             "vector::sort",
             [&]() {

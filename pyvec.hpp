@@ -1331,10 +1331,7 @@ bool pyvec<T>::contains(const shared<T>& value) const {
 
 template<typename T>
 std::vector<T> pyvec<T>::collect() const {
-    vec<T> ans;
-    ans.reserve(size());
-    for (auto& item : _ptrs) { ans.push_back(*item); }
-    return ans;
+    return std::vector<T>{cbegin(), cend()};
 }
 
 #endif   // PYVEC_HPP
