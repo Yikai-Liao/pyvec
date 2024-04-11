@@ -8,6 +8,7 @@
 #include <algorithm>
 
 using std::nullopt;
+using namespace pycontainer;
 
 TEST_CASE("pyvec basic editing", "[pyvec]") {
     pyvec<int> v{1, 2, 3, 4, 5};

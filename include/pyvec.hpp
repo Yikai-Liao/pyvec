@@ -9,8 +9,7 @@
 #include <iostream>
 #include <optional>
 
-
-
+namespace pycontainer {
 struct slice {
     std::optional<ptrdiff_t> start, stop, step;
 
@@ -487,10 +486,10 @@ void pyvec<T>::move_assign(pyvec<T>&& other) {
 template<typename T>
 void pyvec<T>::move_assign(vec<T>&& other) {
     try_init();
-    auto&      chunk = emplace_chunk(std::move(other));
+    auto& chunk = emplace_chunk(std::move(other));
     _ptrs.resize(chunk.size());
-    auto       ptr   = chunk.data();
-    const auto end   = _ptrs.data() + _ptrs.size();
+    auto       ptr = chunk.data();
+    const auto end = _ptrs.data() + _ptrs.size();
     for (auto target = _ptrs.data(); target != end; ++target) { *target = ptr++; }
 }
 
@@ -1336,5 +1335,5 @@ template<typename T>
 std::vector<T> pyvec<T>::collect() const {
     return std::vector<T>{cbegin(), cend()};
 }
-
+}   // namespace pyvec
 #endif   // PYVEC_HPP
