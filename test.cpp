@@ -107,6 +107,19 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         REQUIRE(v.collect() == std::vector<int>{1, 1, 1, 1, 1, 1});
         v = {1, 2, 3, 4, 5};
         REQUIRE(v.collect() == std::vector<int>{1, 2, 3, 4, 5});
+
+        std::vector<int> data(1000, 1);
+        v.assign(data.begin(), data.end());
+        REQUIRE(v.collect() == data);
+
+        v.assign(v.begin(), v.end());
+        REQUIRE(v.collect() == data);
+
+        pyvec<int> v2;
+        v2.assign(v.begin(), v.end());
+        REQUIRE(v2.collect() == data);
+        v2.assign(2, 2);
+        REQUIRE(v2.collect() == std::vector<int>(2, 2));
     }
 }
 
@@ -117,6 +130,8 @@ TEST_CASE("pyvec basic access", "[pyvec]") {
     REQUIRE(v[2] == 3);
     REQUIRE(v.at(2) == 3);
     REQUIRE(v[2] == 3);
+    REQUIRE_THROWS(v.at(5));
+    REQUIRE_THROWS(v.getitem(10));
 }
 
 TEST_CASE("comparison operators", "[pyvec]") {
@@ -233,6 +248,8 @@ TEST_CASE("python interface") {
     SECTION("member functions") {
         REQUIRE(v.index(3) == 2);
         REQUIRE(v.index(3, 2) == 2);
+        REQUIRE_THROWS(v.index(3, 3));
+        REQUIRE_THROWS(v.index(6));
         REQUIRE(v.contains(3));
         REQUIRE(v.contains(6) == false);
         REQUIRE(v.count(3) == 1);
