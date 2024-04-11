@@ -12,6 +12,11 @@ using namespace ankerl;
 
 int main() {
     const size_t num = 10000;
+
+    std::vector v(num, 1);
+    pyvec<int>  pv(v.begin(), v.end());
+    std::vector sv(num, std::make_shared<int>(1));
+
     nanobench::Bench()
         .minEpochIterations(1000)
         .run(
@@ -48,6 +53,36 @@ int main() {
                 nanobench::doNotOptimizeAway(v);
             }
         )
+        // deepcopy
+        .run(
+            "vector::deepcopy",
+            [&]() {
+                std::vector<int> v2(v);
+                nanobench::doNotOptimizeAway(v2);
+            }
+        )
+        .run(
+            "pyvec::deepcopy",
+            [&]() {
+                pyvec<int> v2(pv);
+                nanobench::doNotOptimizeAway(v2);
+            }
+        )
+        .run(
+            "shared_vec::deepcopy",
+            [&]() {
+                auto capsule = std::make_shared<std::vector<int>>();
+                capsule->reserve(num);
+                auto sv2 = std::vector<std::shared_ptr<int>>();
+                sv2.reserve(num);
+                for(auto& i : v) {
+                    capsule->push_back(i);
+                    sv2.emplace_back(capsule, &capsule->back());
+                }
+                nanobench::doNotOptimizeAway(sv2);
+            }
+        )
+
 
         // clang-format off
     ;
