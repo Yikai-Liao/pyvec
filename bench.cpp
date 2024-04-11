@@ -29,27 +29,11 @@ int main() {
             }
         )
         .run(
-            "pyvec::push_back",
+            "pyvec ::push_back",
             [&]() {
                 pyvec<int> v{};
                 v.reserve(num);
                 for (int i = 0; i < num; ++i) { v.push_back(i); }
-                nanobench::doNotOptimizeAway(v);
-            }
-        )
-        .run(
-            "shared_vec::push_back",
-            [&]() {
-                std::vector<std::shared_ptr<int>> v{};
-                v.reserve(num);
-
-                auto capsule = std::make_shared<std::vector<int>>();
-                capsule->reserve(num);
-
-                for (int i = 0; i < num; ++i) {
-                    capsule->push_back(i);
-                    v.emplace_back(capsule, &capsule->back());
-                }
                 nanobench::doNotOptimizeAway(v);
             }
         )
@@ -62,34 +46,31 @@ int main() {
             }
         )
         .run(
-            "pyvec::deepcopy",
+            "pyvec ::deepcopy",
             [&]() {
                 pyvec<int> v2(pv.begin(), pv.end());
                 nanobench::doNotOptimizeAway(v2);
             }
         )
-        .run("pyvec::shallowcopy",
-             [&]() {
-                 nanobench::doNotOptimizeAway(pv.getitem({std::nullopt, std::nullopt, std::nullopt}));
-             })
         .run(
-            "shared_vec::deepcopy",
+            "pyvec ::shallowcopy",
             [&]() {
-                auto capsule = std::make_shared<std::vector<int>>();
-                capsule->reserve(num);
-                auto sv2 = std::vector<std::shared_ptr<int>>();
-                sv2.reserve(num);
-                for(auto& i : v) {
-                    capsule->push_back(i);
-                    sv2.emplace_back(capsule, &capsule->back());
-                }
-                nanobench::doNotOptimizeAway(sv2);
+                nanobench::doNotOptimizeAway(pv.getitem({std::nullopt, std::nullopt, std::nullopt})
+                );
             }
         )
         .run(
-            "shared_vec::shallowcopy",
+            "vector::sort",
             [&]() {
-                nanobench::doNotOptimizeAway(std::vector(sv.begin(), sv.end()));
+                std::sort(v.begin(), v.end(), [](int a, int b) { return a > b; });
+                nanobench::doNotOptimizeAway(v);
+            }
+        )
+        .run(
+            "pyvec ::sort",
+            [&]() {
+                pv.sort(true);
+                nanobench::doNotOptimizeAway(pv);
             }
         )
         // clang-format off

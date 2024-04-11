@@ -1274,10 +1274,7 @@ pyvec<T> pyvec<T>::getitem(const slice& t_slice) {
 
     if (s.step == 1) {
         // std::copy is faster than loop
-        ans._ptrs.resize(s.num_steps);
-        std::copy(
-            _ptrs.begin() + s.start, _ptrs.begin() + s.start + s.num_steps, ans._ptrs.begin()
-        );
+        ans._ptrs.assign(_ptrs.begin() + s.start, _ptrs.begin() + s.start + s.num_steps);
     } else {
         ans._ptrs.reserve(s.num_steps);
         size_t pivot = s.start;
