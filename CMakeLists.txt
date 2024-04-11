@@ -10,11 +10,20 @@ FetchContent_Declare(
         GIT_TAG        v3.4.0 # or a later release
 )
 
-FetchContent_MakeAvailable(Catch2)
+FetchContent_Declare(
+        nanobench
+        GIT_REPOSITORY https://github.com/martinus/nanobench.git
+        GIT_TAG        v4.3.11 # or a later release
+)
+
+FetchContent_MakeAvailable(Catch2 nanobench)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 
 add_executable(pyvec_test test.cpp pyvec.hpp)
 target_link_libraries(pyvec_test PRIVATE Catch2::Catch2WithMain)
+
+add_executable(bench bench.cpp pyvec.hpp)
+target_link_libraries(bench PRIVATE nanobench)
 
 include(CTest)
 include(Catch)
