@@ -132,6 +132,40 @@ TEST_CASE("pyvec basic access", "[pyvec]") {
     REQUIRE(v[2] == 3);
     REQUIRE_THROWS(v.at(5));
     REQUIRE_THROWS(v.getitem(10));
+    auto d2 =v.getitem(2);
+    REQUIRE(d2.use_count() == 2);
+    {
+        auto d3 =v.getitem(3);
+        REQUIRE(d3.use_count() == 3);
+        REQUIRE(d2.use_count() == 3);
+    }
+    REQUIRE(d2.use_count() == 2);
+    {
+        auto v2 = v.getitem({1, 4, 1});
+        REQUIRE(d2.use_count() == 3);
+    }
+    REQUIRE(d2.use_count() == 2);
+    {
+        auto v2 = v.deepcopy();
+        REQUIRE(d2.use_count() == 2);
+        auto v3 = v.copy();
+        REQUIRE(d2.use_count() == 3);
+        auto d3 = v2.getitem(2);
+        REQUIRE(d3.use_count() == 2);
+        REQUIRE(d2.use_count() == 3);
+        auto d4 = v3.getitem(2);
+        REQUIRE(d4.use_count() == 4);
+        REQUIRE(d3.use_count() == 2);
+        REQUIRE(d2.use_count() == 4);
+    }
+    REQUIRE(d2.use_count() == 2);
+    {
+        pyvec<int> tmp_v {};
+        v.swap(tmp_v);
+        REQUIRE(d2.use_count() == 2);
+        REQUIRE(d2.use_count() == 2);
+    }
+    REQUIRE(d2.use_count() == 1);
 }
 
 TEST_CASE("comparison operators", "[pyvec]") {
