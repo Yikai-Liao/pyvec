@@ -28,6 +28,13 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         REQUIRE(tmp4.collect() == tmp_vec);
         pyvec<int> tmp5(tmp4.begin(), tmp4.end());
         REQUIRE(tmp5.collect() == tmp_vec);
+
+        pyvec<int> tmp6{std::move(tmp5)};
+        REQUIRE(tmp6.collect() == tmp_vec);
+
+        std::vector<int> tmp_vec2{tmp_vec};
+        pyvec<int> tmp8(std::move(tmp_vec2));
+        REQUIRE(tmp8.collect() == tmp_vec);
     }
 
     SECTION("push_back and emplace_back") {

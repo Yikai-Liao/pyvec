@@ -603,7 +603,7 @@ pyvec<T>::pyvec(pyvec<T>&& other) noexcept {
 
 template<typename T>
 pyvec<T>::pyvec(std::vector<T>&& other) {
-    move_assign(other);
+    move_assign(std::move(other));
 }
 
 /*
