@@ -18,7 +18,7 @@ int main() {
     std::vector sv(num, std::make_shared<int>(1));
 
     nanobench::Bench()
-        .minEpochIterations(1000)
+        .minEpochIterations(2000)
         .run(
             "vector::push_back",
             [&]() {
@@ -31,7 +31,7 @@ int main() {
         .run(
             "pyvec::push_back",
             [&]() {
-                pyvec<int> v;
+                pyvec<int> v{};
                 v.reserve(num);
                 for (int i = 0; i < num; ++i) { v.push_back(i); }
                 nanobench::doNotOptimizeAway(v);
@@ -40,7 +40,7 @@ int main() {
         .run(
             "shared_vec::push_back",
             [&]() {
-                std::vector<std::shared_ptr<int>> v;
+                std::vector<std::shared_ptr<int>> v{};
                 v.reserve(num);
 
                 auto capsule = std::make_shared<std::vector<int>>();
@@ -68,6 +68,10 @@ int main() {
                 nanobench::doNotOptimizeAway(v2);
             }
         )
+        .run("pyvec::shallowcopy",
+             [&]() {
+                 nanobench::doNotOptimizeAway(pv.getitem({std::nullopt, std::nullopt, std::nullopt}));
+             })
         .run(
             "shared_vec::deepcopy",
             [&]() {
@@ -82,8 +86,12 @@ int main() {
                 nanobench::doNotOptimizeAway(sv2);
             }
         )
-
-
+        .run(
+            "shared_vec::shallowcopy",
+            [&]() {
+                nanobench::doNotOptimizeAway(std::vector(sv.begin(), sv.end()));
+            }
+        )
         // clang-format off
     ;
     // clang-format on
