@@ -18,7 +18,7 @@ int main() {
     std::vector sv(num, std::make_shared<int>(1));
 
     nanobench::Bench()
-        .minEpochIterations(2000)
+        .minEpochIterations(3000)
         .run(
             "vector::push_back",
             [&]() {
@@ -45,20 +45,8 @@ int main() {
                 nanobench::doNotOptimizeAway(v2);
             }
         )
-        .run(
-            "pyvec ::deepcopy",
-            [&]() {
-                pyvec<int> v2(pv.begin(), pv.end());
-                nanobench::doNotOptimizeAway(v2);
-            }
-        )
-        .run(
-            "pyvec ::shallowcopy",
-            [&]() {
-                nanobench::doNotOptimizeAway(pv.getitem({std::nullopt, std::nullopt, std::nullopt})
-                );
-            }
-        )
+        .run("pyvec ::shallowcopy", [&]() { nanobench::doNotOptimizeAway(pv.copy()); })
+        .run("pyvec ::deepcopy", [&]() { nanobench::doNotOptimizeAway(pv.deepcopy()); })
         .run(
             "vector::sort",
             [&]() {

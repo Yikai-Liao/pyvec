@@ -635,7 +635,9 @@ void pyvec<T>::assign(size_type count, const T& value) {
     clear();
     auto& chunk = emplace_chunk(count, value);
     _ptrs.resize(chunk.size());
-    for (auto i = 0; i < chunk.size(); ++i) { _ptrs[i] = &chunk[i]; }
+    auto       ptr = chunk.data();
+    const auto end = _ptrs.data() + _ptrs.size();
+    for (auto target = _ptrs.data(); target != end; ++target) { *target = ptr++; }
 }
 
 template<typename T>
@@ -644,8 +646,9 @@ void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     clear();
     auto& chunk = emplace_chunk(first, last);
     _ptrs.resize(chunk.size());
-    auto ptr = chunk.data();
-    for (auto i = 0; i < chunk.size(); ++i) { _ptrs[i] = ptr++; }
+    auto       ptr = chunk.data();
+    const auto end = _ptrs.data() + _ptrs.size();
+    for (auto target = _ptrs.data(); target != end; ++target) { *target = ptr++; }
 }
 
 template<typename T>
@@ -1023,8 +1026,8 @@ void pyvec<T>::extend(const pyvec<T>& other) {
 template<typename T>
 pyvec<T> pyvec<T>::copy() {
     pyvec<T> ans{};
-    ans._resources   = _resources;   // shallow copy
-    ans._ptrs        = _ptrs;
+    ans._resources = _resources;   // shallow copy
+    ans._ptrs.assign(_ptrs.begin(), _ptrs.end());
     ans._chunk_pivot = _chunk_pivot;
     ans._capacity    = _capacity;   // shallow copy
     return ans;
