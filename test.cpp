@@ -256,7 +256,6 @@ TEST_CASE("python interface") {
         v2.append(3);
         v2.remove(3);
         REQUIRE(v2.collect() == std::vector<int>{1, 2, 4, 5, 3});
-
     }
 
     SECTION("magic methods") {
@@ -275,9 +274,20 @@ TEST_CASE("python interface") {
         auto s6 = v.getitem({nullopt, -1, nullopt});
         REQUIRE(s6.collect() == std::vector<int>{1, 2, 3, 4});
         auto s7 = v.getitem({-3, -1, nullopt});
-        REQUIRE(s7.collect() == std::vector<int>{3, 4, 5});
+        REQUIRE(s7.collect() == std::vector<int>{3, 4});
         auto s8 = v.getitem({nullopt, nullopt, -1});
         REQUIRE(s8.collect() == std::vector<int>{5, 4, 3, 2, 1});
+
+        // out of range slice
+        REQUIRE(v.getitem({10, 20, 1}).collect().empty());
+        REQUIRE(v.getitem({10, 20, -1}).collect().empty());
+        REQUIRE(v.getitem({-20, -10, 1}).collect().empty());
+        REQUIRE(v.getitem({-20, -10, -1}).collect().empty());
+        REQUIRE(v.getitem({1, 10, 2}).collect() == std::vector<int>{2, 4});
+        REQUIRE(v.getitem({1, 10, -2}).collect().empty());
+        REQUIRE(v.getitem({-10, 3, nullopt}).collect() == std::vector<int>{1, 2, 3});
+        REQUIRE(v.getitem({-1, 10, nullopt}).collect() == std::vector<int>{5});
+        REQUIRE(v.getitem({-1, -10, -1}).collect() == std::vector<int>{5, 4, 3, 2, 1});
 
         v.setitem(2, std::make_shared<int>(6));
         REQUIRE(v.collect() == std::vector<int>{1, 2, 6, 4, 5});

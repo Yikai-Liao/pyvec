@@ -936,9 +936,10 @@ bool pyvec<T>::operator!=(const pyvec<T>& other) const {
 template<typename T>
 bool pyvec<T>::operator<(const pyvec<T>& other) const {
     // need to check if T is comparable
-    for (auto it = cbegin(), it2 = other.cbegin(); it != cend(); ++it, ++it2) {
-        if (*it < *it2) { return true; }
-        if (*it > *it2) { return false; }
+    const auto min_size = std::min(size(), other.size());
+    for (auto i = 0; i < min_size; ++i) {
+        if (*_ptrs[i] < *other._ptrs[i]) { return true; }
+        if (*other._ptrs[i] < *_ptrs[i]) { return false; }
     }
     return size() < other.size();
 }
@@ -1136,14 +1137,48 @@ size_t pyvec<T>::index(
  */
 template<typename T>
 typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) const {
-    const difference_type step = t_slice.step.value_or(1);
+    difference_type start, stop, num_steps;
+    difference_type step   = t_slice.step.value_or(1);
+    auto            v_size = static_cast<difference_type>(size());
+    const auto      zero   = static_cast<difference_type>(0);
     if (step == 0) { throw std::invalid_argument("slice::step == 0"); }
-    const difference_type start = pypos(t_slice.start.value_or(0));
-    difference_type       stop  = t_slice.stop.value_or(step > 0 ? size() : -1);
-    stop                        = stop >= size() ? size() : pypos(stop);
+    if (step > 0) {
+        start = t_slice.start.value_or(0);
+        if (start < 0) {
+            start = std::max(zero, start + v_size);
+        } else {
+            start = std::min(start, v_size);
+        }
 
-    difference_type num_steps = (stop - start) / step;
-    if (num_steps < 0) { num_steps = 0; }
+        stop = t_slice.stop.value_or(v_size);
+        if (stop < 0) {
+            stop = std::max(zero, stop + v_size);
+        } else {
+            stop = std::min(stop, v_size);
+        }
+
+        num_steps = std::max(zero, (stop - start - 1) / step + 1);
+    } else {
+        start = t_slice.start.value_or(v_size - 1);
+        if (start < 0) {
+            start = std::max(static_cast<difference_type>(-1), start + v_size);
+        } else {
+            start = std::min(start, v_size - 1);
+        }
+
+        if (t_slice.stop.has_value()) {
+            stop = t_slice.stop.value();
+            if (stop < 0) {
+                stop = std::max(static_cast<difference_type>(-1), stop + v_size);
+            } else {
+                stop = std::min(stop, v_size);
+            }
+        } else {
+            stop = -1;
+        }
+
+        num_steps = std::max(zero, (start - stop - 1) / -step + 1);
+    }
     return {static_cast<size_type>(start), static_cast<size_type>(num_steps), step};
 }
 
@@ -1242,14 +1277,17 @@ template<typename T>
 void pyvec<T>::delitem(const slice& t_slice) {
     auto s = build_slice(t_slice);
     if (s.num_steps == 0) { return; }
-    auto new_ptrs = vec<pointer>();
+    auto new_ptrs = vec<pointer>{};
     new_ptrs.reserve(size() - s.num_steps);
-    const size_t end = s.start + s.num_steps * s.step;
-    for (size_t i = 0; i < size(); ++i) {
-        if ((i < s.start | i >= end) || (i - s.start) % s.step != 0) {
+    for (difference_type i = 0; i < size(); ++i) {
+        const auto delta = i - static_cast<difference_type>(s.start);
+        if ((delta % s.step == 0) && (delta / s.step < s.num_steps)) {
+            continue;
+        } else {
             new_ptrs.push_back(_ptrs[i]);
         }
     }
+
     _ptrs = std::move(new_ptrs);
 }
 
