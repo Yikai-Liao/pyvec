@@ -633,10 +633,9 @@ pyvec<T>& pyvec<T>::operator=(pyvec<T>&& other) noexcept {
 template<typename T>
 void pyvec<T>::assign(size_type count, const T& value) {
     clear();
-    auto& chunk = suitable_chunk(count);
-    chunk.assign(count, value);
-    _ptrs.reserve(count);
-    for (auto& item : chunk) { _ptrs.push_back(&item); }
+    auto& chunk = emplace_chunk(count, value);
+    _ptrs.resize(chunk.size());
+    for (auto i = 0; i < chunk.size(); ++i) { _ptrs[i] = &chunk[i]; }
 }
 
 template<typename T>
@@ -644,8 +643,9 @@ template<class InputIt>
 void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     clear();
     auto& chunk = emplace_chunk(first, last);
-    _ptrs.reserve(chunk.size());
-    for (auto& item : chunk) { _ptrs.push_back(&item); }
+    _ptrs.resize(chunk.size());
+    auto ptr = chunk.data();
+    for (auto i = 0; i < chunk.size(); ++i) { _ptrs[i] = ptr++; }
 }
 
 template<typename T>

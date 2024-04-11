@@ -64,7 +64,7 @@ int main() {
         .run(
             "pyvec::deepcopy",
             [&]() {
-                pyvec<int> v2(v.begin(), v.end());
+                pyvec<int> v2(pv.begin(), pv.end());
                 nanobench::doNotOptimizeAway(v2);
             }
         )
