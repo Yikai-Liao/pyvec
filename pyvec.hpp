@@ -417,7 +417,7 @@ public:
     explicit const_iterator(const const_pointer* ptr) : _ptr(ptr) {}
 
     // allow implicit conversion from iterator to const_iterator
-    const_iterator(const iterator& other) : _ptr(other._ptr) {}
+    const_iterator(const iterator& other) : _ptr(other._ptr) {}   // NOLINT
 
     // iterator dereference
     reference operator*() const { return **_ptr; }
@@ -480,15 +480,18 @@ void pyvec<T>::move_assign(pyvec<T>&& other) {
     _resources   = std::move(other._resources);
     _ptrs        = std::move(other._ptrs);
     _chunk_pivot = other._chunk_pivot;
-    _capacity    = other._capacity;
+    _capacity    = std::move(other._capacity);
+    _last_chunk  = other._last_chunk;
 }
 
 template<typename T>
 void pyvec<T>::move_assign(vec<T>&& other) {
-    clear();
-    auto& chunk = add_chunk(std::move(other));
-    _ptrs.reserve(chunk.size());
-    for (auto& item : chunk) { _ptrs.push_back(&item); }
+    try_init();
+    auto&      chunk = emplace_chunk(std::move(other));
+    _ptrs.resize(chunk.size());
+    auto       ptr   = chunk.data();
+    const auto end   = _ptrs.data() + _ptrs.size();
+    for (auto target = _ptrs.data(); target != end; ++target) { *target = ptr++; }
 }
 
 template<typename T>
