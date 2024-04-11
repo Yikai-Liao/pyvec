@@ -63,6 +63,22 @@ int main() {
                 nanobench::doNotOptimizeAway(pv);
             }
         )
+        .run(
+            "vector::filter",
+            [&]() {
+                std::vector<int> v2;
+                std::copy_if(v.begin(), v.end(), std::back_inserter(v2), [](int i) { return i % 2 == 0; });
+                nanobench::doNotOptimizeAway(v2);
+            }
+        )
+        .run(
+            "pyvec ::filter",
+            [&]() {
+                auto pv2 = pv.copy();
+                pv2.filter([](int i) { return i % 2 == 0; });
+                nanobench::doNotOptimizeAway(pv2);
+            }
+        )
         // clang-format off
     ;
     // clang-format on
