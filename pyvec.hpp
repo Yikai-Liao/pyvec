@@ -17,7 +17,7 @@ struct slice {
     slice(
         const std::optional<ptrdiff_t> start,
         const std::optional<ptrdiff_t> stop,
-        const std::optional<ptrdiff_t> step
+        const std::optional<ptrdiff_t> step = std::nullopt
     ) : start(start), stop(stop), step(step) {}
 };
 
@@ -61,6 +61,7 @@ private:
     vec<pointer>        _ptrs;
     shared<size_type>   _capacity;
     size_type           _chunk_pivot = 0;
+    vec<T>*             _last_chunk  = nullptr;
 
 
     struct slice_native {
@@ -512,11 +513,22 @@ std::vector<T>& pyvec<T>::add_chunk(vec<T>&& chunk) {
 template<typename T>
 std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
     if (expected_size == 0) { throw std::invalid_argument("pyvec: expected_size == 0"); }
-    try_init();
-    vec<T>* ans = nullptr;
-    for (auto i = _chunk_pivot; i < _resources->size(); ++i) {
-        auto&      chunk     = _resources->operator[](i);
-        const auto remaining = chunk.capacity() - chunk.size();
+    if (_last_chunk != nullptr) {
+        const auto remaining = _last_chunk->capacity() - _last_chunk->size();
+        if (remaining >= expected_size) { return *_last_chunk; }
+    } else {
+        try_init();
+    }
+
+    vec<T>*    ans    = nullptr;
+    bool       update = true;
+    const auto end    = _resources->end();
+    const auto begin  = _resources->begin();
+
+    for (auto iter = _resources->begin() + _chunk_pivot; iter != end; ++iter) {
+        vec<T>&         chunk     = *iter;
+        const size_type remaining = chunk.capacity() - chunk.size();
+        _chunk_pivot              = (update & (remaining == 0)) ? iter - begin + 1 : _chunk_pivot;
         if (remaining >= expected_size) {
             ans = &chunk;
             break;
@@ -526,7 +538,7 @@ std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
         const auto expanded = std::max(expected_size, std::max(*_capacity, min_chunk_size));
         ans                 = &new_chunk(expanded);
     }
-    _chunk_pivot = expected_size == 1 ? ans - _resources->data() : _chunk_pivot;
+    _last_chunk = ans;
     return *ans;
 }
 
