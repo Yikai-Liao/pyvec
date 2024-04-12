@@ -5,9 +5,8 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
-#include <algorithm>
-#include <iostream>
 #include <optional>
+#include "timsort.hpp"
 
 namespace pycontainer {
 struct slice {
@@ -350,8 +349,18 @@ public:
     using difference_type   = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
 
+    iterator() = default;
+
+    iterator(const iterator&) = default;
+
+    iterator(iterator&&) noexcept = default;
+
     // iterator constructor
     explicit iterator(pointer* ptr) : _ptr(ptr) {}
+
+    iterator& operator=(const iterator&) = default;
+
+    iterator& operator=(iterator&&) noexcept = default;
 
     // iterator dereference
     reference operator*() const { return **_ptr; }
@@ -417,11 +426,34 @@ public:
     using difference_type   = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
 
+    const_iterator() = default;
+
+    const_iterator(const const_iterator&) = default;
+
+    const_iterator(const_iterator&&) noexcept = default;
+
     // iterator constructor
     explicit const_iterator(const const_pointer* ptr) : _ptr(ptr) {}
 
     // allow implicit conversion from iterator to const_iterator
     const_iterator(const iterator& other) : _ptr(other._ptr) {}   // NOLINT
+
+    const_iterator(iterator&& other) : _ptr(other._ptr) { other._ptr = nullptr; }   // NOLINT
+
+    const_iterator& operator=(const const_iterator&) = default;
+
+    const_iterator& operator=(const_iterator&&) noexcept = default;
+
+    const_iterator& operator=(const iterator& other) {
+        _ptr = other._ptr;
+        return *this;
+    }
+
+    const_iterator& operator=(iterator&& other) {
+        _ptr       = other._ptr;
+        other._ptr = nullptr;
+        return *this;
+    }
 
     // iterator dereference
     reference operator*() const { return **_ptr; }
@@ -1128,9 +1160,9 @@ template<typename Key>
 void pyvec<T>::sort(const bool reverse, Key key) {
     auto cmp = [&key](const pointer& a, const pointer& b) { return key(*a) < key(*b); };
     if (reverse) {
-        std::sort(_ptrs.rbegin(), _ptrs.rend(), cmp);
+        gfx::timsort(_ptrs.rbegin(), _ptrs.rend(), cmp);
     } else {
-        std::sort(_ptrs.begin(), _ptrs.end(), cmp);
+        gfx::timsort(_ptrs.begin(), _ptrs.end(), cmp);
     }
 }
 

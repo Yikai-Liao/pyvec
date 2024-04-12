@@ -6,7 +6,7 @@ option(BUILD_PYVEC_BENCHMARKS "Build benchmarks" OFF)
 
 add_library(pyvec INTERFACE)
 add_library(pyvec::pyvec ALIAS pyvec)
-target_compile_features(pyvec INTERFACE cxx_std_17)
+target_compile_features(pyvec INTERFACE cxx_std_20)
 target_include_directories(pyvec INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if (BUILD_PYVEC_TESTS)
