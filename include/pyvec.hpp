@@ -76,9 +76,11 @@ public:
      *  Iterator Declaration
      */
 
-    using pointer_iterator = typename std::vector<pointer>::iterator;
-    class const_iterator;
     class iterator;
+    class const_iterator;
+    using pointer_iterator         = typename std::vector<pointer>::iterator;
+    using reverse_iterator         = std::reverse_iterator<iterator>;
+    using reverse_pointer_iterator = std::reverse_iterator<pointer_iterator>;
 
     /*
      *  Pyhton-List-Like Interface
@@ -219,17 +221,20 @@ public:
      *  Vector-Like Iterators
      */
 
-    iterator       begin();
-    const_iterator begin() const;
-    const_iterator cbegin() const;
+    iterator                 begin();
+    const_iterator           begin() const;
+    const_iterator           cbegin() const;
+    pointer_iterator         pbegin();
+    reverse_iterator         rbegin();
+    reverse_pointer_iterator rpbegin();
 
-    iterator       end();
-    const_iterator end() const;
-    const_iterator cend() const;
 
-    pointer_iterator pbegin();
-
-    pointer_iterator pend();
+    iterator                 end();
+    const_iterator           end() const;
+    const_iterator           cend() const;
+    pointer_iterator         pend();
+    reverse_iterator         rend();
+    reverse_pointer_iterator rpend();
 
     /*
      *  Vector-Like Capacity
@@ -724,6 +729,21 @@ typename pyvec<T>::const_iterator pyvec<T>::cbegin() const {
 }
 
 template<typename T>
+typename pyvec<T>::pointer_iterator pyvec<T>::pbegin() {
+    return _ptrs.begin();
+}
+
+template<typename T>
+typename pyvec<T>::reverse_iterator pyvec<T>::rbegin() {
+    return reverse_iterator(end());
+}
+
+template<typename T>
+typename pyvec<T>::reverse_pointer_iterator pyvec<T>::rpbegin() {
+    return reverse_pointer_iterator(pend());
+}
+
+template<typename T>
 typename pyvec<T>::iterator pyvec<T>::end() {
     return iterator(_ptrs.data() + _ptrs.size());
 }
@@ -739,13 +759,18 @@ typename pyvec<T>::const_iterator pyvec<T>::cend() const {
 }
 
 template<typename T>
-typename pyvec<T>::pointer_iterator pyvec<T>::pbegin() {
-    return _ptrs.begin();
+typename pyvec<T>::pointer_iterator pyvec<T>::pend() {
+    return _ptrs.end();
 }
 
 template<typename T>
-typename pyvec<T>::pointer_iterator pyvec<T>::pend() {
-    return _ptrs.end();
+typename pyvec<T>::reverse_iterator pyvec<T>::rend() {
+    return reverse_iterator(begin());
+}
+
+template<typename T>
+typename pyvec<T>::reverse_pointer_iterator pyvec<T>::rpend() {
+    return reverse_pointer_iterator(pbegin());
 }
 
 /*
@@ -1335,5 +1360,5 @@ template<typename T>
 std::vector<T> pyvec<T>::collect() const {
     return std::vector<T>{cbegin(), cend()};
 }
-}   // namespace pyvec
+}   // namespace pycontainer
 #endif   // PYVEC_HPP

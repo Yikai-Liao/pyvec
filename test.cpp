@@ -36,6 +36,10 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         std::vector<int> tmp_vec2{tmp_vec};
         pyvec<int> tmp8(std::move(tmp_vec2));
         REQUIRE(tmp8.collect() == tmp_vec);
+
+        // rbegin, rend
+        pyvec<int> tmp9(tmp8.rbegin(), tmp8.rend());
+        REQUIRE(tmp9.collect() == std::vector<int>{5, 4, 3, 2, 1});
     }
 
     SECTION("push_back and emplace_back") {
@@ -135,6 +139,14 @@ TEST_CASE("pyvec basic access", "[pyvec]") {
     pyvec<int> v{1, 2, 3, 4, 5};
     REQUIRE(v.front() == 1);
     REQUIRE(v.back() == 5);
+    REQUIRE(*v.begin() == 1);
+    REQUIRE(*(v.end() - 1) == 5);
+    REQUIRE(*v.rbegin() == 5);
+    REQUIRE(*(v.rend() - 1) == 1);
+    REQUIRE(**v.pbegin() == 1);
+    REQUIRE(**(v.pend() - 1) == 5);
+    REQUIRE(**v.rpbegin() == 5);
+    REQUIRE(**(v.rpend() - 1) == 1);
     REQUIRE(v[2] == 3);
     REQUIRE(v.at(2) == 3);
     REQUIRE(v[2] == 3);
