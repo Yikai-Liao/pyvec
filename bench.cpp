@@ -53,22 +53,26 @@ int main() {
         .run(
             "vector::sort",
             [&]() {
-                std::sort(v.begin(), v.end(), [](int a, int b) { return a > b; });
-                nanobench::doNotOptimizeAway(v);
+                std::vector v2(v);
+                std::sort(v2.begin(), v2.end(), [](int a, int b) { return a > b; });
+                nanobench::doNotOptimizeAway(v2);
             }
         )
         .run(
             "pyvec ::sort",
             [&]() {
-                pv.sort(true);
-                nanobench::doNotOptimizeAway(pv);
+                pyvec<int> v2 = pv.copy();
+                v2.sort(true);
+                nanobench::doNotOptimizeAway(v2);
             }
         )
         .run(
             "vector::filter",
             [&]() {
                 std::vector<int> v2;
-                std::copy_if(v.begin(), v.end(), std::back_inserter(v2), [](int i) { return i % 2 == 0; });
+                std::copy_if(v.begin(), v.end(), std::back_inserter(v2), [](int i) {
+                    return i % 2 == 0;
+                });
                 nanobench::doNotOptimizeAway(v2);
             }
         )
@@ -78,6 +82,22 @@ int main() {
                 auto pv2 = pv.copy();
                 pv2.filter([](int i) { return i % 2 == 0; });
                 nanobench::doNotOptimizeAway(pv2);
+            }
+        )
+        .run(
+            "vector::sum",
+            [&]() {
+                size_t sum = 0;
+                for (const auto& i : v) { sum = (sum + i) % 1000000007; }
+                nanobench::doNotOptimizeAway(sum);
+            }
+        )
+        .run(
+            "pyvec ::sum",
+            [&]() {
+                size_t sum = 0;
+                for (const auto& i : pv) { sum = (sum + i) % 1000000007; }
+                nanobench::doNotOptimizeAway(sum);
             }
         )
         // clang-format off

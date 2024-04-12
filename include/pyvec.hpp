@@ -5,9 +5,8 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
-#include <algorithm>
-#include <iostream>
 #include <optional>
+#include "timsort.hpp"
 
 namespace pycontainer {
 struct slice {
@@ -76,9 +75,11 @@ public:
      *  Iterator Declaration
      */
 
-    using pointer_iterator = typename std::vector<pointer>::iterator;
-    class const_iterator;
     class iterator;
+    class const_iterator;
+    using pointer_iterator         = typename std::vector<pointer>::iterator;
+    using reverse_iterator         = std::reverse_iterator<iterator>;
+    using reverse_pointer_iterator = std::reverse_iterator<pointer_iterator>;
 
     /*
      *  Pyhton-List-Like Interface
@@ -219,17 +220,20 @@ public:
      *  Vector-Like Iterators
      */
 
-    iterator       begin();
-    const_iterator begin() const;
-    const_iterator cbegin() const;
+    iterator                 begin();
+    const_iterator           begin() const;
+    const_iterator           cbegin() const;
+    pointer_iterator         pbegin();
+    reverse_iterator         rbegin();
+    reverse_pointer_iterator rpbegin();
 
-    iterator       end();
-    const_iterator end() const;
-    const_iterator cend() const;
 
-    pointer_iterator pbegin();
-
-    pointer_iterator pend();
+    iterator                 end();
+    const_iterator           end() const;
+    const_iterator           cend() const;
+    pointer_iterator         pend();
+    reverse_iterator         rend();
+    reverse_pointer_iterator rpend();
 
     /*
      *  Vector-Like Capacity
@@ -345,8 +349,18 @@ public:
     using difference_type   = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
 
+    iterator() = default;
+
+    iterator(const iterator&) = default;
+
+    iterator(iterator&&) noexcept = default;
+
     // iterator constructor
     explicit iterator(pointer* ptr) : _ptr(ptr) {}
+
+    iterator& operator=(const iterator&) = default;
+
+    iterator& operator=(iterator&&) noexcept = default;
 
     // iterator dereference
     reference operator*() const { return **_ptr; }
@@ -412,11 +426,34 @@ public:
     using difference_type   = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
 
+    const_iterator() = default;
+
+    const_iterator(const const_iterator&) = default;
+
+    const_iterator(const_iterator&&) noexcept = default;
+
     // iterator constructor
     explicit const_iterator(const const_pointer* ptr) : _ptr(ptr) {}
 
     // allow implicit conversion from iterator to const_iterator
     const_iterator(const iterator& other) : _ptr(other._ptr) {}   // NOLINT
+
+    const_iterator(iterator&& other) : _ptr(other._ptr) { other._ptr = nullptr; }   // NOLINT
+
+    const_iterator& operator=(const const_iterator&) = default;
+
+    const_iterator& operator=(const_iterator&&) noexcept = default;
+
+    const_iterator& operator=(const iterator& other) {
+        _ptr = other._ptr;
+        return *this;
+    }
+
+    const_iterator& operator=(iterator&& other) {
+        _ptr       = other._ptr;
+        other._ptr = nullptr;
+        return *this;
+    }
 
     // iterator dereference
     reference operator*() const { return **_ptr; }
@@ -724,6 +761,21 @@ typename pyvec<T>::const_iterator pyvec<T>::cbegin() const {
 }
 
 template<typename T>
+typename pyvec<T>::pointer_iterator pyvec<T>::pbegin() {
+    return _ptrs.begin();
+}
+
+template<typename T>
+typename pyvec<T>::reverse_iterator pyvec<T>::rbegin() {
+    return reverse_iterator(end());
+}
+
+template<typename T>
+typename pyvec<T>::reverse_pointer_iterator pyvec<T>::rpbegin() {
+    return reverse_pointer_iterator(pend());
+}
+
+template<typename T>
 typename pyvec<T>::iterator pyvec<T>::end() {
     return iterator(_ptrs.data() + _ptrs.size());
 }
@@ -739,13 +791,18 @@ typename pyvec<T>::const_iterator pyvec<T>::cend() const {
 }
 
 template<typename T>
-typename pyvec<T>::pointer_iterator pyvec<T>::pbegin() {
-    return _ptrs.begin();
+typename pyvec<T>::pointer_iterator pyvec<T>::pend() {
+    return _ptrs.end();
 }
 
 template<typename T>
-typename pyvec<T>::pointer_iterator pyvec<T>::pend() {
-    return _ptrs.end();
+typename pyvec<T>::reverse_iterator pyvec<T>::rend() {
+    return reverse_iterator(begin());
+}
+
+template<typename T>
+typename pyvec<T>::reverse_pointer_iterator pyvec<T>::rpend() {
+    return reverse_pointer_iterator(pbegin());
 }
 
 /*
@@ -1103,9 +1160,9 @@ template<typename Key>
 void pyvec<T>::sort(const bool reverse, Key key) {
     auto cmp = [&key](const pointer& a, const pointer& b) { return key(*a) < key(*b); };
     if (reverse) {
-        std::sort(_ptrs.rbegin(), _ptrs.rend(), cmp);
+        gfx::timsort(_ptrs.rbegin(), _ptrs.rend(), cmp);
     } else {
-        std::sort(_ptrs.begin(), _ptrs.end(), cmp);
+        gfx::timsort(_ptrs.begin(), _ptrs.end(), cmp);
     }
 }
 
@@ -1335,5 +1392,5 @@ template<typename T>
 std::vector<T> pyvec<T>::collect() const {
     return std::vector<T>{cbegin(), cend()};
 }
-}   // namespace pyvec
+}   // namespace pycontainer
 #endif   // PYVEC_HPP
