@@ -34,7 +34,7 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         REQUIRE(tmp6.collect() == tmp_vec);
 
         std::vector<int> tmp_vec2{tmp_vec};
-        pyvec<int> tmp8(std::move(tmp_vec2));
+        pyvec<int>       tmp8(std::move(tmp_vec2));
         REQUIRE(tmp8.collect() == tmp_vec);
 
         // rbegin, rend
@@ -147,15 +147,17 @@ TEST_CASE("pyvec basic access", "[pyvec]") {
     REQUIRE(**(v.pend() - 1) == 5);
     REQUIRE(**v.rpbegin() == 5);
     REQUIRE(**(v.rpend() - 1) == 1);
+    REQUIRE(**(v.sbegin() + 2) == 3);
+    REQUIRE(**(v.send() - 1) == 5);
     REQUIRE(v[2] == 3);
     REQUIRE(v.at(2) == 3);
     REQUIRE(v[2] == 3);
     REQUIRE_THROWS(v.at(5));
     REQUIRE_THROWS(v.getitem(10));
-    auto d2 =v.getitem(2);
+    auto d2 = v.getitem(2);
     REQUIRE(d2.use_count() == 2);
     {
-        auto d3 =v.getitem(3);
+        auto d3 = v.getitem(3);
         REQUIRE(d3.use_count() == 3);
         REQUIRE(d2.use_count() == 3);
     }
@@ -180,7 +182,7 @@ TEST_CASE("pyvec basic access", "[pyvec]") {
     }
     REQUIRE(d2.use_count() == 2);
     {
-        pyvec<int> tmp_v {};
+        pyvec<int> tmp_v{};
         v.swap(tmp_v);
         REQUIRE(d2.use_count() == 2);
         REQUIRE(d2.use_count() == 2);

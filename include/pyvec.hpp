@@ -77,6 +77,7 @@ public:
 
     class iterator;
     class const_iterator;
+    class shared_iterator;
     using pointer_iterator         = typename std::vector<pointer>::iterator;
     using reverse_iterator         = std::reverse_iterator<iterator>;
     using reverse_pointer_iterator = std::reverse_iterator<pointer_iterator>;
@@ -223,6 +224,7 @@ public:
     iterator                 begin();
     const_iterator           begin() const;
     const_iterator           cbegin() const;
+    shared_iterator          sbegin();
     pointer_iterator         pbegin();
     reverse_iterator         rbegin();
     reverse_pointer_iterator rpbegin();
@@ -231,6 +233,7 @@ public:
     iterator                 end();
     const_iterator           end() const;
     const_iterator           cend() const;
+    shared_iterator          send();
     pointer_iterator         pend();
     reverse_iterator         rend();
     reverse_pointer_iterator rpend();
@@ -507,6 +510,81 @@ public:
     bool operator>=(const const_iterator& other) const { return _ptr >= other._ptr; }
 };
 
+template<typename T>
+class pyvec<T>::shared_iterator {
+    friend class pyvec;
+    pointer*            _ptr;
+    shared<vec<vec<T>>> _resources;
+
+public:
+    using value_type        = T;
+    using reference         = shared<T>;
+    using difference_type   = std::ptrdiff_t;
+    using iterator_category = std::random_access_iterator_tag;
+
+    shared_iterator()                           = default;
+    shared_iterator(const shared_iterator&)     = default;
+    shared_iterator(shared_iterator&&) noexcept = default;
+    shared_iterator(pointer* ptr, const shared<vec<vec<T>>>& resources) :
+        _ptr(ptr), _resources(resources) {}
+
+    shared_iterator& operator=(const shared_iterator&)     = default;
+    shared_iterator& operator=(shared_iterator&&) noexcept = default;
+
+    reference operator*() const { return shared<T>(_resources, *_ptr); }
+    pointer   operator->() const { return *_ptr; }
+
+    shared_iterator& operator+=(difference_type i) {
+        _ptr += i;
+        return *this;
+    }
+
+    shared_iterator& operator-=(difference_type i) {
+        _ptr -= i;
+        return *this;
+    }
+
+    shared_iterator& operator++() {
+        ++_ptr;
+        return *this;
+    }
+
+    shared_iterator& operator--() {
+        --_ptr;
+        return *this;
+    }
+
+    shared_iterator operator++(int) {
+        shared_iterator tmp = *this;
+        ++_ptr;
+        return tmp;
+    }
+
+    shared_iterator operator--(int) {
+        shared_iterator tmp = *this;
+        --_ptr;
+        return tmp;
+    }
+
+    shared_iterator operator+(difference_type i) const {
+        return shared_iterator{_ptr + i, _resources};
+    }
+
+    shared_iterator operator-(difference_type i) const {
+        return shared_iterator{_ptr - i, _resources};
+    }
+
+    difference_type operator-(const shared_iterator& other) const { return _ptr - other._ptr; }
+
+    // operator <=>
+    bool operator==(const shared_iterator& other) const { return _ptr == other._ptr; }
+    bool operator!=(const shared_iterator& other) const { return _ptr != other._ptr; }
+    bool operator<(const shared_iterator& other) const { return _ptr < other._ptr; }
+    bool operator>(const shared_iterator& other) const { return _ptr > other._ptr; }
+    bool operator<=(const shared_iterator& other) const { return _ptr <= other._ptr; }
+    bool operator>=(const shared_iterator& other) const { return _ptr >= other._ptr; }
+};
+
 /*
  *  Helper Functions
  */
@@ -761,6 +839,11 @@ typename pyvec<T>::const_iterator pyvec<T>::cbegin() const {
 }
 
 template<typename T>
+typename pyvec<T>::shared_iterator pyvec<T>::sbegin() {
+    return shared_iterator(_ptrs.data(), _resources);
+}
+
+template<typename T>
 typename pyvec<T>::pointer_iterator pyvec<T>::pbegin() {
     return _ptrs.begin();
 }
@@ -788,6 +871,11 @@ typename pyvec<T>::const_iterator pyvec<T>::end() const {
 template<typename T>
 typename pyvec<T>::const_iterator pyvec<T>::cend() const {
     return const_iterator(_ptrs.data() + _ptrs.size());
+}
+
+template<typename T>
+typename pyvec<T>::shared_iterator pyvec<T>::send() {
+    return shared_iterator(_ptrs.data() + _ptrs.size(), _resources);
 }
 
 template<typename T>
