@@ -347,9 +347,7 @@ class pyvec<T>::iterator {
 
 public:
     using value_type        = T;
-    using reference         = T&;
-    using pointer           = T*;
-    using difference_type   = std::ptrdiff_t;
+    using different_type    = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
 
     iterator() = default;
@@ -424,8 +422,6 @@ class pyvec<T>::const_iterator {
 
 public:
     using value_type        = T;
-    using reference         = const T&;
-    using pointer           = const T*;
     using difference_type   = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
 
@@ -459,8 +455,8 @@ public:
     }
 
     // iterator dereference
-    reference operator*() const { return **_ptr; }
-    pointer   operator->() const { return *_ptr; }
+    const_reference operator*() const { return **_ptr; }
+    const_pointer   operator->() const { return *_ptr; }
 
     // iterator arithmetic
     const_iterator& operator+=(difference_type i) {
