@@ -114,14 +114,21 @@ public:
 
     void sort(bool reverse = false);
     template<typename Key>
-    void sort(bool reverse, Key key);
+    void sort(Key key, bool reverse);
+    template<typename Key>
+    void sort_shared(Key key, bool reverse);
 
     [[nodiscard]] bool is_sorted(bool reverse = false) const;
     template<typename Key>
-    [[nodiscard]] bool is_sorted(bool reverse, Key key) const;
+    [[nodiscard]] bool is_sorted(Key key, bool reverse) const;
+    template<typename Key>
+    [[nodiscard]] bool is_sorted_shared(Key key, bool reverse) const;
 
     template<typename Func>
     void filter(Func func);
+
+    template<typename Func>
+    void filter_shared(Func func);
 
     size_t index(
         const T&                       value,
@@ -1236,12 +1243,12 @@ void pyvec<T>::reverse() {
 
 template<typename T>
 void pyvec<T>::sort(const bool reverse) {
-    sort(reverse, [](const T& k) -> const T& { return k; });
+    sort([](const T& k) -> const T& { return k; }, reverse);
 }
 
 template<typename T>
 template<typename Key>
-void pyvec<T>::sort(const bool reverse, Key key) {
+void pyvec<T>::sort(Key key, const bool reverse) {
     auto cmp = [&key](const pointer& a, const pointer& b) { return key(*a) < key(*b); };
     if (reverse) {
         gfx::timsort(_ptrs.rbegin(), _ptrs.rend(), cmp);
@@ -1251,14 +1258,41 @@ void pyvec<T>::sort(const bool reverse, Key key) {
 }
 
 template<typename T>
+template<typename Key>
+void pyvec<T>::sort_shared(Key key, const bool reverse) {
+    auto cmp = [&](const pointer& a, const pointer& b) {
+        return key(shared<T>(_resources, a)) < key(shared<T>(_resources, b));
+    };
+    if (reverse) {
+        gfx::timsort(_ptrs.rbegin(), _ptrs.rend(), cmp);
+    } else {
+        gfx::timsort(_ptrs.begin(), _ptrs.end(), cmp);
+    }
+}
+
+
+template<typename T>
 bool pyvec<T>::is_sorted(const bool reverse) const {
     return is_sorted(reverse, [](const T& k) -> const T& { return k; });
 }
 
 template<typename T>
 template<typename Key>
-bool pyvec<T>::is_sorted(const bool reverse, Key key) const {
+bool pyvec<T>::is_sorted(Key key, const bool reverse) const {
     auto cmp = [&key](const pointer& a, const pointer& b) { return key(*a) < key(*b); };
+    if (reverse) {
+        return std::is_sorted(_ptrs.rbegin(), _ptrs.rend(), cmp);
+    } else {
+        return std::is_sorted(_ptrs.begin(), _ptrs.end(), cmp);
+    }
+}
+
+template<typename T>
+template<typename Key>
+bool pyvec<T>::is_sorted_shared(Key key, const bool reverse) const {
+    auto cmp = [&](const pointer& a, const pointer& b) {
+        return key(shared<T>(_resources, a)) < key(shared<T>(_resources, b));
+    };
     if (reverse) {
         return std::is_sorted(_ptrs.rbegin(), _ptrs.rend(), cmp);
     } else {
@@ -1271,6 +1305,15 @@ template<typename Func>
 void pyvec<T>::filter(Func func) {
     auto it = std::remove_if(_ptrs.begin(), _ptrs.end(), [&func](const pointer& ptr) {
         return !func(*ptr);
+    });
+    _ptrs.erase(it, _ptrs.end());
+}
+
+template<typename T>
+template<typename Func>
+void pyvec<T>::filter_shared(Func func) {
+    auto it = std::remove_if(_ptrs.begin(), _ptrs.end(), [&func, this](const pointer& ptr) {
+        return !func(shared<T>(_resources, ptr));
     });
     _ptrs.erase(it, _ptrs.end());
 }
