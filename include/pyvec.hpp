@@ -265,8 +265,6 @@ public:
      */
 
     // clear() is declared in Python-List-Like Interface
-
-    // insert
     iterator insert(const_iterator pos, const T& value);
     iterator insert(const_iterator pos, T&& value);
     iterator insert(const_iterator pos, size_type count, const T& value);
@@ -767,6 +765,7 @@ template<typename T>
 template<class InputIt>
 void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     try_init();
+    if(first == last) { return; }
     auto& chunk = emplace_chunk(first, last);
     _ptrs.resize(chunk.size());
     auto       ptr = chunk.data();
@@ -971,6 +970,7 @@ template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(
     const_iterator pos, const size_type count, const T& value
 ) {
+    if(count == 0) { return iterator(pos); }
     const auto idx   = insert_empty(pos, count);
     auto&      chunk = suitable_chunk(count);
     // insert the new elements
@@ -985,7 +985,6 @@ template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(
     const const_iterator pos, std::initializer_list<T> il
 ) {
-
     return insert(pos, il.begin(), il.end());
 }
 
@@ -995,6 +994,7 @@ typename pyvec<T>::iterator pyvec<T>::insert(
     const const_iterator pos, is_input_iterator_t<InputIt> first, InputIt last
 ) {
     const auto count = std::distance(first, last);
+    if (count == 0) { return iterator(pos); }
     auto       idx   = insert_empty(pos, count);
     auto&      chunk = suitable_chunk(count);
     size_t     pivot = idx;
@@ -1418,6 +1418,7 @@ template<typename InputIt>
 void pyvec<T>::setitem(const slice& t_slice, is_input_iterator_t<InputIt> first, InputIt last) {
     auto      s          = build_slice(t_slice);
     size_type other_size = std::distance(first, last);
+    if (other_size == 0) { this->delitem(t_slice); }
     if (s.step == 1) {
         difference_type delta =
             static_cast<difference_type>(other_size) - static_cast<difference_type>(s.num_steps);
