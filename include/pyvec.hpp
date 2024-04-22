@@ -678,11 +678,11 @@ std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
 
 template<typename T>
 size_t pyvec<T>::insert_empty(const const_iterator pos, const size_type count) {
-    const auto idx = std::distance(cbegin(), pos);
+    const difference_type idx = std::distance(cbegin(), pos);
     if (idx > _ptrs.size()) { throw std::out_of_range("pyvec::insert_empty"); }
     const size_type raw_size = _ptrs.size();
     _ptrs.resize(_ptrs.size() + count);
-    for (auto i = raw_size - 1; i >= idx; --i) { _ptrs[i + count] = _ptrs[i]; }
+    for (difference_type i = raw_size - 1; i >= idx; --i) { _ptrs[i + count] = _ptrs[i]; }
     return idx;
 }
 
