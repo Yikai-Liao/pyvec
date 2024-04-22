@@ -1190,9 +1190,10 @@ pyvec<T> pyvec<T>::deepcopy() {
 
 template<typename T>
 typename pyvec<T>::size_type pyvec<T>::pypos(difference_type index) const {
-    if (index < 0) { index += size(); }
-    if (index < 0 | index >= size()) { throw std::out_of_range("pyvec::index"); }
-    return index;
+    difference_type ans = index;
+    if (ans < 0) { ans += size(); }
+    if (ans < 0 | ans >= size()) { throw std::out_of_range("pyvec::index out of range: " + std::to_string(index)); }
+    return ans;
 }
 
 template<typename T>
@@ -1203,7 +1204,8 @@ std::shared_ptr<T> pyvec<T>::share(size_type index) {
 
 template<typename T>
 void pyvec<T>::insert(const difference_type index, const T& value) {
-    insert(cbegin() + pypos(index), value);
+    const difference_type pos = index >= size()? size() : pypos(index);
+    insert(cbegin() + pos, value);
 }
 
 template<typename T>
