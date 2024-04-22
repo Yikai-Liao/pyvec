@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <optional>
+#include <string>
 #include "timsort.hpp"
 
 namespace pycontainer {
@@ -663,6 +664,8 @@ std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
         if (remaining >= expected_size) {
             ans = &chunk;
             break;
+        } else if (remaining > 0) {
+            update = false;
         }
     }
     if (ans == nullptr) {
@@ -1192,7 +1195,9 @@ template<typename T>
 typename pyvec<T>::size_type pyvec<T>::pypos(difference_type index) const {
     difference_type ans = index;
     if (ans < 0) { ans += size(); }
-    if (ans < 0 | ans >= size()) { throw std::out_of_range("pyvec::index out of range: " + std::to_string(index)); }
+    if (ans < 0 | ans >= size()) {
+        throw std::out_of_range("pyvec::index out of range: " + std::to_string(index));
+    }
     return ans;
 }
 
@@ -1204,7 +1209,7 @@ std::shared_ptr<T> pyvec<T>::share(size_type index) {
 
 template<typename T>
 void pyvec<T>::insert(const difference_type index, const T& value) {
-    const difference_type pos = index >= size()? size() : pypos(index);
+    const difference_type pos = index >= size() ? size() : pypos(index);
     insert(cbegin() + pos, value);
 }
 
@@ -1353,7 +1358,7 @@ typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) cons
     difference_type start, stop, num_steps;
     difference_type step   = t_slice.step.value_or(1);
     auto            v_size = static_cast<difference_type>(size());
-    const auto      zero   = static_cast<difference_type>(0);
+    constexpr auto  zero   = static_cast<difference_type>(0);
     if (step == 0) { throw std::invalid_argument("slice::step == 0"); }
     if (step > 0) {
         start = t_slice.start.value_or(0);
