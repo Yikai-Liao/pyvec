@@ -970,7 +970,7 @@ template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(
     const_iterator pos, const size_type count, const T& value
 ) {
-    if(count == 0) { return iterator(pos); }
+    if(count == 0) { return iterator(const_cast<pointer*>(pos._ptr)); }
     const auto idx   = insert_empty(pos, count);
     auto&      chunk = suitable_chunk(count);
     // insert the new elements
@@ -994,7 +994,7 @@ typename pyvec<T>::iterator pyvec<T>::insert(
     const const_iterator pos, is_input_iterator_t<InputIt> first, InputIt last
 ) {
     const auto count = std::distance(first, last);
-    if (count == 0) { return iterator(pos); }
+    if (count == 0) { return iterator(const_cast<pointer*>(pos._ptr)); }
     auto       idx   = insert_empty(pos, count);
     auto&      chunk = suitable_chunk(count);
     size_t     pivot = idx;
@@ -1280,7 +1280,7 @@ void pyvec<T>::sort_shared(Key key, const bool reverse) {
 
 template<typename T>
 bool pyvec<T>::is_sorted(const bool reverse) const {
-    return is_sorted(reverse, [](const T& k) -> const T& { return k; });
+    return is_sorted([](const T& k) -> const T& { return k; }, reverse);
 }
 
 template<typename T>

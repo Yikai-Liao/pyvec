@@ -40,6 +40,9 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         // rbegin, rend
         pyvec<int> tmp9(tmp8.rbegin(), tmp8.rend());
         REQUIRE(tmp9.collect() == std::vector<int>{5, 4, 3, 2, 1});
+
+        pyvec<int> tmp10{};
+        REQUIRE(tmp10.collect().empty());
     }
 
     SECTION("push_back and emplace_back") {
@@ -50,6 +53,11 @@ TEST_CASE("pyvec basic editing", "[pyvec]") {
         v.emplace_back(7);
         REQUIRE(v.size() == 7);
         REQUIRE(v.back() == 7);
+
+        pyvec<int> tmp{};
+        tmp.push_back(1);
+        tmp.emplace_back(2);
+        REQUIRE(tmp.collect() == std::vector<int>{1, 2});
     }
 
     SECTION("insert and emplace") {
@@ -284,7 +292,7 @@ TEST_CASE("memory stability", "[pyvec]") {
             slice.collect() == std::vector<int>{5, 4, 3, 2, 1}
         );   // sort using iter does affect slice
 
-        v.sort(false, [](const auto& a) -> const auto& { return a; });
+        v.sort([](const auto& a) -> const auto& { return a; }, false);
         REQUIRE(v.collect() == std::vector<int>{1, 2, 3, 4, 5});
         REQUIRE(
             slice.collect() == std::vector<int>{5, 4, 3, 2, 1}
@@ -312,8 +320,8 @@ TEST_CASE("python interface") {
         REQUIRE(v.count(6) == 0);
         REQUIRE(v.is_sorted());
         REQUIRE(!v.is_sorted(true));
-        REQUIRE(!v.is_sorted(false, [](int a) { return -a; }));
-        REQUIRE(v.is_sorted(true, [](int a) { return -a; }));
+        REQUIRE(!v.is_sorted([](int a) { return -a; }, false));
+        REQUIRE(v.is_sorted([](int a) { return -a; }, true));
 
         auto v2 = v.deepcopy();
         v2.reverse();
@@ -329,6 +337,25 @@ TEST_CASE("python interface") {
         v2.append(3);
         v2.remove(3);
         REQUIRE(v2.collect() == std::vector<int>{1, 2, 4, 5, 3});
+
+        pyvec<int> tmp{};
+        tmp.extend(v2);
+        REQUIRE(tmp.collect() == std::vector<int>{1, 2, 4, 5, 3});
+        tmp.extend(v2);
+        REQUIRE(tmp.collect() == std::vector<int>{1, 2, 4, 5, 3, 1, 2, 4, 5, 3});
+        tmp.clear();
+        REQUIRE(tmp.collect().empty());
+        tmp.append(2);
+        REQUIRE(tmp.collect() == std::vector<int>{2});
+        tmp.clear();
+        tmp.extend({3, 4, 5});
+        REQUIRE(tmp.collect() == std::vector<int>{3, 4, 5});
+        tmp.extend({});
+        REQUIRE(tmp.collect() == std::vector<int>{3, 4, 5});
+        tmp.clear();
+        REQUIRE(tmp.collect().empty());
+        tmp.extend({});
+        REQUIRE(tmp.collect().empty());
     }
 
     SECTION("magic methods") {
