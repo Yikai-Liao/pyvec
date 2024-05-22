@@ -1,0 +1,23 @@
+name: Test using Catch2
+
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Configure CMake
+      run: cmake -S . -Bbuild -DBUILD_PYVEC_TESTS:BOOL=ON -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build
+      run: cmake --build build --config Debug
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest -C Debug --output-on-failure --verbose
