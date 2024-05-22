@@ -946,6 +946,7 @@ void pyvec<T>::clear() {
     _chunk_pivot = 0;
     _resources   = std::make_shared<vec<vec<T>>>();
     _capacity    = std::make_shared<size_type>(0);
+    _last_chunk  = nullptr;
 }
 
 template<typename T>
