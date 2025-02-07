@@ -2,6 +2,18 @@
 #ifndef PYVEC_HPP
 #define PYVEC_HPP
 
+/**
+ * @file pyvec.hpp
+ * @brief A Python-list-like container implementation in C++
+ * @details This header provides a Python-list-like container class that combines 
+ *          features from both Python lists and C++ vectors. It supports:
+ *          - Python-style indexing and slicing
+ *          - Python list methods like append(), extend(), pop()
+ *          - C++ STL container interface
+ *          - Memory efficient storage with chunked allocation
+ *          - Thread-safe shared ownership semantics
+ */
+
 #include <vector>
 #include <memory>
 #include <stdexcept>
@@ -10,9 +22,21 @@
 #include "timsort.hpp"
 
 namespace pycontainer {
+
+/**
+ * @brief Represents a Python-style slice object
+ * @details A slice specifies how to slice a sequence with start, stop and step parameters.
+ *          Any parameter can be None (std::nullopt in C++)
+ */
 struct slice {
     std::optional<ptrdiff_t> start, stop, step;
 
+    /**
+     * @brief Constructs a slice object
+     * @param start The starting index of the slice (optional)
+     * @param stop The stopping index of the slice (optional) 
+     * @param step The step size between elements (optional, defaults to 1)
+     */
     slice(
         const std::optional<ptrdiff_t> start,
         const std::optional<ptrdiff_t> stop,
@@ -34,6 +58,28 @@ using is_random_access_iterator_t = std::enable_if_t<
         typename std::iterator_traits<InputIt>::iterator_category>,
     InputIt>;
 
+/**
+ * @brief A Python-list-like container class
+ * @tparam T The type of elements stored in the container
+ * 
+ * @details This class implements a container that behaves similarly to Python lists
+ *          while maintaining compatibility with C++ STL containers. It provides:
+ *          
+ *          Python list features:
+ *          - Negative indexing
+ *          - Slicing with optional start/stop/step
+ *          - Methods like append(), extend(), pop(), etc.
+ *          
+ *          C++ features:
+ *          - STL container requirements
+ *          - Iterator support
+ *          - Memory efficiency through chunked storage
+ *          - Thread safety through shared ownership
+ *          
+ *          The implementation uses a chunked storage strategy where elements are stored
+ *          in multiple vectors (chunks) to avoid reallocation costs while maintaining
+ *          good memory locality.
+ */
 template<typename T>
 class pyvec {
 public:
@@ -76,8 +122,23 @@ public:
      *  Iterator Declaration
      */
 
+    /**
+     * @brief Random access iterator for pyvec
+     * @details Provides STL-compatible random access iterator interface
+     *          for traversing elements in the container
+     */
     class iterator;
+    /**
+     * @brief Const random access iterator for pyvec
+     * @details Provides STL-compatible const random access iterator interface
+     *          for read-only access to elements
+     */
     class const_iterator;
+    /**
+     * @brief Shared ownership iterator for pyvec
+     * @details Special iterator that provides shared ownership semantics
+     *          when traversing elements
+     */
     class shared_iterator;
     using pointer_iterator         = typename std::vector<pointer>::iterator;
     using reverse_iterator         = std::reverse_iterator<iterator>;
@@ -86,51 +147,173 @@ public:
     /*
      *  Pyhton-List-Like Interface
      */
+    /**
+     * @brief Appends an element to the end of the container
+     * @param value The value to append
+     * @complexity O(1) amortized
+     */
     void append(const T& value);
+    /**
+     * @brief Appends a shared element to the end of the container
+     * @param value Shared pointer to the value to append
+     * @complexity O(1) amortized
+     */
     void append(const shared<T>& value);
 
+    /**
+     * @brief Counts occurrences of a value in the container
+     * @param value The value to count
+     * @return Number of occurrences of the value
+     * @complexity O(n) where n is container size
+     */
     size_type count(const T& value) const;
     size_type count(const shared<T>& value) const;
 
-    // deepcopy when extend
+    /**
+     * @brief Extends the container with elements from an iterator range (deepcopy the input pyvec when extend)
+     * @tparam InputIt Input iterator type
+     * @param first Iterator to the first element
+     * @param last Iterator past the last element
+     * @complexity O(n) where n is distance between first and last
+     */
     template<typename InputIt>
     void extend(is_input_iterator_t<InputIt> first, InputIt last);
     void extend(const pyvec<T>& other);
 
+    /**
+     * @brief Inserts a value at the specified index
+     * @param index Position to insert at (supports negative indexing)
+     * @param value The value to insert
+     * @throws std::out_of_range if index is out of range
+     * @complexity O(n) where n is the number of elements after index
+     */
     void insert(difference_type index, const T& value);
+
+    /**
+     * @brief Inserts a shared value at the specified index (deepcopy the input shared pointer when insert)
+     * @param index Position to insert at (supports negative indexing)
+     * @param value Shared pointer to the value to insert
+     * @throws std::out_of_range if index is out of range
+     * @complexity O(n) where n is the number of elements after index
+     */
     void insert(difference_type index, const shared<T>& value);
 
+    /**
+     * @brief Removes and returns the element at the specified index
+     * @param index Position to remove from (supports negative indexing, defaults to -1)
+     * @return Shared pointer to the removed element
+     * @throws std::out_of_range if index is out of range
+     * @complexity O(n) where n is the number of elements after index
+     */
     shared<T> pop(difference_type index = -1);
 
+    /**
+     * @brief Removes the first occurrence of a value
+     * @param value The value to remove
+     * @throws std::invalid_argument if value is not found
+     * @complexity O(n) where n is container size
+     */
     void remove(const T& value);
+
+    /**
+     * @brief Removes the first occurrence of a shared value
+     * @param value Shared pointer to the value to remove
+     * @throws std::invalid_argument if value is not found
+     * @complexity O(n) where n is container size
+     */
     void remove(const shared<T>& value);
 
+    /**
+     * @brief Reverses the order of elements in-place
+     * @complexity O(n) where n is container size
+     */
     void reverse();
 
+    /**
+     * @brief Removes all elements from the container
+     */
     void clear();
 
+    /**
+     * @brief Creates a shallow copy of the container
+     * @return A new pyvec that shares ownership of the elements
+     * @complexity O(n) where n is container size
+     */
     pyvec<T> copy();
 
+    /**
+     * @brief Creates a deep copy of the container
+     * @return A new pyvec with independent copies of all elements
+     * @complexity O(n) where n is container size
+     */
     pyvec<T> deepcopy();
 
+    /**
+     * @brief Sorts the container in-place using timsort
+     * @param reverse If true, sort in descending order
+     * @complexity O(n log n) where n is container size
+     */
     void sort(bool reverse = false);
+
+    /**
+     * @brief Sorts the container in-place using a key function
+     * @tparam Key Type of key function
+     * @param key Function that returns a comparison key for elements
+     * @param reverse If true, sort in descending order
+     * @complexity O(n log n) where n is container size
+     */
     template<typename Key>
     void sort(Key key, bool reverse);
+
+    /**
+     * @brief Sorts the container in-place using a key function that accepts shared pointers, mainly used for python binding
+     * @tparam Key Type of key function
+     * @param key Function that returns a comparison key for shared elements
+     * @param reverse If true, sort in descending order
+     * @complexity O(n log n) where n is container size
+     */
     template<typename Key>
     void sort_shared(Key key, bool reverse);
 
+    /**
+     * @brief Checks if the container is sorted
+     * @param reverse If true, check for descending order
+     * @return true if sorted, false otherwise
+     * @complexity O(n) where n is container size
+     */
     [[nodiscard]] bool is_sorted(bool reverse = false) const;
     template<typename Key>
     [[nodiscard]] bool is_sorted(Key key, bool reverse) const;
     template<typename Key>
     [[nodiscard]] bool is_sorted_shared(Key key, bool reverse) const;
 
+    /**
+     * @brief Filters elements in-place using a predicate
+     * @tparam Func Type of filter function
+     * @param func Predicate function that returns true for elements to keep
+     * @complexity O(n) where n is container size
+     */
     template<typename Func>
     void filter(Func func);
 
+    /**
+     * @brief Filters elements in-place using a predicate that accepts shared pointers
+     * @tparam Func Type of filter function
+     * @param func Predicate function that returns true for shared elements to keep
+     * @complexity O(n) where n is container size
+     */
     template<typename Func>
     void filter_shared(Func func);
 
+    /**
+     * @brief Finds the index of the first occurrence of a value
+     * @param value The value to find
+     * @param start Start index for search (optional)
+     * @param stop Stop index for search (optional)
+     * @return Index of first occurrence
+     * @throws std::invalid_argument if value is not found
+     * @complexity O(n) where n is search range size
+     */
     size_t index(
         const T&                       value,
         std::optional<difference_type> start = std::nullopt,
@@ -1143,16 +1326,32 @@ bool pyvec<T>::operator>=(const pyvec<T>& other) const {
  */
 
 template<typename T>
+/**
+ * @brief Appends an element to the end of the container
+ * @param value The value to append
+ * @complexity O(1) amortized
+ */
 void pyvec<T>::append(const T& value) {
     push_back(value);
 }
 
 template<typename T>
+/**
+ * @brief Appends a shared element to the end of the container
+ * @param value Shared pointer to the value to append
+ * @complexity O(1) amortized
+ */
 void pyvec<T>::append(const shared<T>& value) {
     push_back(*value);
 }
 
 template<typename T>
+/**
+ * @brief Counts occurrences of a value in the container
+ * @param value The value to count
+ * @return Number of occurrences of the value
+ * @complexity O(n) where n is container size
+ */
 size_t pyvec<T>::count(const T& value) const {
     size_t cnt = 0;
     for (auto& item : _ptrs) {
@@ -1167,6 +1366,13 @@ size_t pyvec<T>::count(const shared<T>& value) const {
 }
 
 template<typename T>
+/**
+ * @brief Extends the container with elements from an iterator range
+ * @tparam InputIt Input iterator type
+ * @param first Iterator to the first element
+ * @param last Iterator past the last element
+ * @complexity O(n) where n is distance between first and last
+ */
 template<typename InputIt>
 void pyvec<T>::extend(is_input_iterator_t<InputIt> first, InputIt last) {
     insert(cend(), first, last);
