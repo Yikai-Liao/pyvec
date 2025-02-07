@@ -5,7 +5,7 @@
 /**
  * @file pyvec.hpp
  * @brief A Python-list-like container implementation in C++
- * @details This header provides a Python-list-like container class that combines 
+ * @details This header provides a Python-list-like container class that combines
  *          features from both Python lists and C++ vectors. It supports:
  *          - Python-style indexing and slicing
  *          - Python list methods like append(), extend(), pop()
@@ -34,7 +34,7 @@ struct slice {
     /**
      * @brief Constructs a slice object
      * @param start The starting index of the slice (optional)
-     * @param stop The stopping index of the slice (optional) 
+     * @param stop The stopping index of the slice (optional)
      * @param step The step size between elements (optional, defaults to 1)
      */
     slice(
@@ -61,21 +61,21 @@ using is_random_access_iterator_t = std::enable_if_t<
 /**
  * @brief A Python-list-like container class
  * @tparam T The type of elements stored in the container
- * 
+ *
  * @details This class implements a container that behaves similarly to Python lists
  *          while maintaining compatibility with C++ STL containers. It provides:
- *          
+ *
  *          Python list features:
  *          - Negative indexing
  *          - Slicing with optional start/stop/step
  *          - Methods like append(), extend(), pop(), etc.
- *          
+ *
  *          C++ features:
  *          - STL container requirements
  *          - Iterator support
  *          - Memory efficiency through chunked storage
  *          - Thread safety through shared ownership
- *          
+ *
  *          The implementation uses a chunked storage strategy where elements are stored
  *          in multiple vectors (chunks) to avoid reallocation costs while maintaining
  *          good memory locality.
@@ -170,7 +170,8 @@ public:
     size_type count(const shared<T>& value) const;
 
     /**
-     * @brief Extends the container with elements from an iterator range (deepcopy the input pyvec when extend)
+     * @brief Extends the container with elements from an iterator range (deepcopy the input pyvec
+     * when extend)
      * @tparam InputIt Input iterator type
      * @param first Iterator to the first element
      * @param last Iterator past the last element
@@ -190,7 +191,8 @@ public:
     void insert(difference_type index, const T& value);
 
     /**
-     * @brief Inserts a shared value at the specified index (deepcopy the input shared pointer when insert)
+     * @brief Inserts a shared value at the specified index (deepcopy the input shared pointer when
+     * insert)
      * @param index Position to insert at (supports negative indexing)
      * @param value Shared pointer to the value to insert
      * @throws std::out_of_range if index is out of range
@@ -266,7 +268,8 @@ public:
     void sort(Key key, bool reverse);
 
     /**
-     * @brief Sorts the container in-place using a key function that accepts shared pointers, mainly used for python binding
+     * @brief Sorts the container in-place using a key function that accepts shared pointers, mainly
+     * used for python binding
      * @tparam Key Type of key function
      * @param key Function that returns a comparison key for shared elements
      * @param reverse If true, sort in descending order
@@ -823,36 +826,65 @@ std::vector<T>& pyvec<T>::emplace_chunk(Args&&... args) {
     return _resources->back();
 }
 
+/**
+ * @brief Retrieve a chunk with sufficient free capacity.
+ * 
+ * This method validates the expected free capacity and, if necessary, initializes resources.
+ * It first checks if the last used chunk has enough available capacity. If not, it iteratively examines
+ * the available chunks starting from the current chunk pivot. The pivot index is updated when a fully utilized chunk
+ * is encountered provided that no partially filled chunk is found afterwards. If no suitable chunk is found,
+ * this method allocates a new chunk with a capacity that is the maximum of the expected size, current capacity,
+ * or a predefined minimum chunk size. The last used chunk is then cached and returned.
+ * 
+ * @param expected_size The required number of additional elements to be stored.
+ * @return std::vector<T>& A reference to a vector (chunk) with sufficient capacity.
+ * @throws std::invalid_argument if expected_size is 0.
+ */
 template<typename T>
 std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
+    // Validate that the expected size is non-zero.
     if (expected_size == 0) { throw std::invalid_argument("pyvec: expected_size == 0"); }
+
+    // If the last used chunk exists and has sufficient capacity, return it.
     if (_last_chunk != nullptr) {
         const auto remaining = _last_chunk->capacity() - _last_chunk->size();
         if (remaining >= expected_size) { return *_last_chunk; }
     } else {
+        // Initialize resources if they have not been set up.
         try_init();
     }
 
+    // Begin searching for an existing chunk that can accommodate the expected size.
     vec<T>*    ans    = nullptr;
     bool       update = true;
     const auto end    = _resources->end();
     const auto begin  = _resources->begin();
 
+    // Iterate through chunks starting from the current pivot.
     for (auto iter = _resources->begin() + _chunk_pivot; iter != end; ++iter) {
         vec<T>&         chunk     = *iter;
         const size_type remaining = chunk.capacity() - chunk.size();
-        _chunk_pivot              = (update & (remaining == 0)) ? iter - begin + 1 : _chunk_pivot;
+
+        // Update the pivot if the current chunk is full and update flag is true.
+        _chunk_pivot = (update & (remaining == 0)) ? iter - begin + 1 : _chunk_pivot;
+
+        // If a chunk with sufficient remaining capacity is found, select it.
         if (remaining >= expected_size) {
             ans = &chunk;
             break;
         } else if (remaining > 0) {
+            // Once a chunk with partial free space is encountered, disable further pivot updates.
             update = false;
         }
     }
+
+    // If no suitable chunk is found, allocate a new chunk with an expanded capacity.
     if (ans == nullptr) {
         const auto expanded = std::max(expected_size, std::max(*_capacity, min_chunk_size));
         ans                 = &new_chunk(expanded);
     }
+
+    // Cache the last used chunk for future use.
     _last_chunk = ans;
     return *ans;
 }
@@ -948,7 +980,7 @@ template<typename T>
 template<class InputIt>
 void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     try_init();
-    if(first == last) { return; }
+    if (first == last) { return; }
     auto& chunk = emplace_chunk(first, last);
     _ptrs.resize(chunk.size());
     auto       ptr = chunk.data();
@@ -1154,7 +1186,7 @@ template<typename T>
 typename pyvec<T>::iterator pyvec<T>::insert(
     const_iterator pos, const size_type count, const T& value
 ) {
-    if(count == 0) { return iterator(const_cast<pointer*>(pos._ptr)); }
+    if (count == 0) { return iterator(const_cast<pointer*>(pos._ptr)); }
     const auto idx   = insert_empty(pos, count);
     auto&      chunk = suitable_chunk(count);
     // insert the new elements
@@ -1179,9 +1211,9 @@ typename pyvec<T>::iterator pyvec<T>::insert(
 ) {
     const auto count = std::distance(first, last);
     if (count == 0) { return iterator(const_cast<pointer*>(pos._ptr)); }
-    auto       idx   = insert_empty(pos, count);
-    auto&      chunk = suitable_chunk(count);
-    size_t     pivot = idx;
+    auto   idx   = insert_empty(pos, count);
+    auto&  chunk = suitable_chunk(count);
+    size_t pivot = idx;
     for (auto it = first; it != last; ++it) {
         chunk.push_back(*it);
         _ptrs[pivot++] = &chunk.back();
