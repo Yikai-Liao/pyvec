@@ -824,8 +824,8 @@ template<typename... Args>
  * @brief Creates and adds a new chunk with perfect forwarding
  * @param args Arguments to forward to the new chunk's constructor
  * @return Reference to the newly created chunk
- * 
- * Creates a new chunk by perfectly forwarding the provided arguments and adds it to 
+ *
+ * Creates a new chunk by perfectly forwarding the provided arguments and adds it to
  * the resources. Updates total capacity accordingly.
  */
 std::vector<T>& pyvec<T>::emplace_chunk(Args&&... args) {
@@ -978,13 +978,13 @@ pyvec<T>& pyvec<T>::operator=(pyvec<T>&& other) noexcept {
 template<typename T>
 /**
  * @brief Assigns the container with count copies of value
- * 
+ *
  * Replaces the contents with count copies of value.
  * All previous elements are removed.
- * 
+ *
  * @param count Number of elements to assign
  * @param value Value to assign
- * 
+ *
  * Example:
  * @code
  *   pyvec<int> v = {1, 2, 3};
@@ -1006,20 +1006,20 @@ template<typename T>
 template<class InputIt>
 /**
  * @brief Assigns elements from an iterator range to the container
- * 
+ *
  * Replaces the contents with copies of elements in the range [first, last).
  * All previous elements are removed.
- * 
+ *
  * @tparam InputIt Input iterator type
  * @param first Iterator to the first element
  * @param last Iterator past the last element
- * 
+ *
  * Example:
  * @code
  *   pyvec<int> v = {1, 2, 3};
  *   std::vector<int> src = {4, 5, 6};
  *   v.assign(src.begin(), src.end());  // v is now {4, 5, 6}
- *   
+ *
  *   std::list<int> empty;
  *   v.assign(empty.begin(), empty.end());  // v is now empty
  * @endcode
@@ -1464,18 +1464,18 @@ void pyvec<T>::extend(const pyvec<T>& other) {
 template<typename T>
 /**
  * @brief Creates a shallow copy of the container
- * 
+ *
  * Creates a new container that shares the same underlying resources but has its own
  * pointer array. Modifying elements in either container will affect both, but structural
  * changes (add/remove) are independent.
- * 
+ *
  * @return A new pyvec with shared resources
- * 
+ *
  * Example:
  * @code
  *   pyvec<int> v = {1, 2, 3};
  *   auto v2 = v.copy();
- *   
+ *
  *   v2[0] = 10;        // v is now {10, 2, 3}
  *   v2.push_back(4);   // v remains {10, 2, 3}, v2 is {10, 2, 3, 4}
  * @endcode
@@ -1793,7 +1793,7 @@ void pyvec<T>::setitem(const difference_type index, const shared<T>& value) {
     setitem(index, *value);
 }
 
-/*
+/**
  * @brief Assign a sequence to a specified slice of the container, emulating Python list slice
  * assignment.
  *
