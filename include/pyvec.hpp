@@ -820,6 +820,14 @@ std::vector<T>& pyvec<T>::add_chunk(vec<T>&& chunk) {
 
 template<typename T>
 template<typename... Args>
+/**
+ * @brief Creates and adds a new chunk with perfect forwarding
+ * @param args Arguments to forward to the new chunk's constructor
+ * @return Reference to the newly created chunk
+ * 
+ * Creates a new chunk by perfectly forwarding the provided arguments and adds it to 
+ * the resources. Updates total capacity accordingly.
+ */
 std::vector<T>& pyvec<T>::emplace_chunk(Args&&... args) {
     _resources->emplace_back(std::forward<Args>(args)...);
     *_capacity += _resources->back().capacity();
@@ -828,14 +836,15 @@ std::vector<T>& pyvec<T>::emplace_chunk(Args&&... args) {
 
 /**
  * @brief Retrieve a chunk with sufficient free capacity.
- * 
+ *
  * This method validates the expected free capacity and, if necessary, initializes resources.
- * It first checks if the last used chunk has enough available capacity. If not, it iteratively examines
- * the available chunks starting from the current chunk pivot. The pivot index is updated when a fully utilized chunk
- * is encountered provided that no partially filled chunk is found afterwards. If no suitable chunk is found,
- * this method allocates a new chunk with a capacity that is the maximum of the expected size, current capacity,
- * or a predefined minimum chunk size. The last used chunk is then cached and returned.
- * 
+ * It first checks if the last used chunk has enough available capacity. If not, it iteratively
+ * examines the available chunks starting from the current chunk pivot. The pivot index is updated
+ * when a fully utilized chunk is encountered provided that no partially filled chunk is found
+ * afterwards. If no suitable chunk is found, this method allocates a new chunk with a capacity that
+ * is the maximum of the expected size, current capacity, or a predefined minimum chunk size. The
+ * last used chunk is then cached and returned.
+ *
  * @param expected_size The required number of additional elements to be stored.
  * @return std::vector<T>& A reference to a vector (chunk) with sufficient capacity.
  * @throws std::invalid_argument if expected_size is 0.
@@ -890,7 +899,7 @@ std::vector<T>& pyvec<T>::suitable_chunk(size_type expected_size) {
 }
 
 template<typename T>
-size_t pyvec<T>::insert_empty(const const_iterator pos, const size_type count) {
+size_t pyvec<T>::insert_empty(const const_iterator pos, size_type count) {
     const difference_type idx = std::distance(cbegin(), pos);
     if (idx > _ptrs.size()) { throw std::out_of_range("pyvec::insert_empty"); }
     const size_type raw_size = _ptrs.size();
@@ -967,6 +976,23 @@ pyvec<T>& pyvec<T>::operator=(pyvec<T>&& other) noexcept {
  */
 
 template<typename T>
+/**
+ * @brief Assigns the container with count copies of value
+ * 
+ * Replaces the contents with count copies of value.
+ * All previous elements are removed.
+ * 
+ * @param count Number of elements to assign
+ * @param value Value to assign
+ * 
+ * Example:
+ * @code
+ *   pyvec<int> v = {1, 2, 3};
+ *   v.assign(2, 10);      // v is now {10, 10}
+ *   v.assign(4, 20);      // v is now {20, 20, 20, 20}
+ *   v.assign(0, 30);      // v is now empty
+ * @endcode
+ */
 void pyvec<T>::assign(size_type count, const T& value) {
     try_init();
     auto& chunk = emplace_chunk(count, value);
@@ -978,6 +1004,26 @@ void pyvec<T>::assign(size_type count, const T& value) {
 
 template<typename T>
 template<class InputIt>
+/**
+ * @brief Assigns elements from an iterator range to the container
+ * 
+ * Replaces the contents with copies of elements in the range [first, last).
+ * All previous elements are removed.
+ * 
+ * @tparam InputIt Input iterator type
+ * @param first Iterator to the first element
+ * @param last Iterator past the last element
+ * 
+ * Example:
+ * @code
+ *   pyvec<int> v = {1, 2, 3};
+ *   std::vector<int> src = {4, 5, 6};
+ *   v.assign(src.begin(), src.end());  // v is now {4, 5, 6}
+ *   
+ *   std::list<int> empty;
+ *   v.assign(empty.begin(), empty.end());  // v is now empty
+ * @endcode
+ */
 void pyvec<T>::assign(is_input_iterator_t<InputIt> first, InputIt last) {
     try_init();
     if (first == last) { return; }
@@ -1416,6 +1462,24 @@ void pyvec<T>::extend(const pyvec<T>& other) {
 }
 
 template<typename T>
+/**
+ * @brief Creates a shallow copy of the container
+ * 
+ * Creates a new container that shares the same underlying resources but has its own
+ * pointer array. Modifying elements in either container will affect both, but structural
+ * changes (add/remove) are independent.
+ * 
+ * @return A new pyvec with shared resources
+ * 
+ * Example:
+ * @code
+ *   pyvec<int> v = {1, 2, 3};
+ *   auto v2 = v.copy();
+ *   
+ *   v2[0] = 10;        // v is now {10, 2, 3}
+ *   v2.push_back(4);   // v remains {10, 2, 3}, v2 is {10, 2, 3, 4}
+ * @endcode
+ */
 pyvec<T> pyvec<T>::copy() {
     pyvec<T> ans{};
     ans._resources = _resources;   // shallow copy
@@ -1546,6 +1610,20 @@ bool pyvec<T>::is_sorted_shared(Key key, const bool reverse) const {
     }
 }
 
+/**
+ * @brief Filters elements in-place based on a predicate function
+ * @details Removes all elements for which the predicate returns false.
+ *          The predicate should be a callable that takes a T& and returns bool.
+ *
+ * @param func Predicate function that returns true for elements to keep
+ *
+ * Examples:
+ * For container [1,2,3]:
+ * - filter([](int x) { return x > 1; }) -> [2,3]
+ * - filter([](int x) { return x % 2 == 0; }) -> [2]
+ * - filter([](int x) { return true; }) -> [1,2,3]
+ * - filter([](int x) { return false; }) -> []
+ */
 template<typename T>
 template<typename Func>
 void pyvec<T>::filter(Func func) {
@@ -1564,6 +1642,25 @@ void pyvec<T>::filter_shared(Func func) {
     _ptrs.erase(it, _ptrs.end());
 }
 
+/**
+ * @brief Returns the index of first occurrence of value in the container
+ * @details Searches for value in range [start, stop). Supports Python-style negative indices.
+ *          Throws if value is not found.
+ *
+ * @param value Value to search for
+ * @param start Starting index (optional, defaults to 0)
+ * @param stop Stopping index (optional, defaults to size())
+ * @return Index of first occurrence
+ * @throws std::invalid_argument if value not found
+ *
+ * Examples:
+ * For container [1,2,3]:
+ * - index(2) -> 1
+ * - index(2, 0, 2) -> 1
+ * - index(2, -3) -> 1
+ * - index(2, 2) -> throws
+ * - index(4) -> throws
+ */
 template<typename T>
 size_t pyvec<T>::index(
     const T&                             value,
@@ -1592,37 +1689,63 @@ size_t pyvec<T>::index(
 /*
  *  Python Magic Method
  */
+
+
+/**
+ * @brief Converts a Python-style slice into a native slice format
+ * @details Handles both positive and negative step sizes, normalizing indices and calculating steps
+ *
+ * @param t_slice Python-style slice with optional start, stop and step
+ * @return slice_native Normalized slice with absolute start index, number of steps, and step size
+ * @throws std::invalid_argument if step is 0
+ *
+ * Examples:
+ * For container [1,2,3]:
+ * - slice(1,None,1) -> {1, 2, 1}      # [2,3]
+ * - slice(-2,None,1) -> {1, 2, 1}     # [2,3]
+ * - slice(None,1,-1) -> {2, 1, -1}    # [3]
+ * - slice(-1,-4,-1) -> {2, 3, -1}     # [3,2,1]
+ */
 template<typename T>
 typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) const {
     difference_type start, stop, num_steps;
-    difference_type step   = t_slice.step.value_or(1);
+    difference_type step   = t_slice.step.value_or(1);   // Default step is 1
     auto            v_size = static_cast<difference_type>(size());
     constexpr auto  zero   = static_cast<difference_type>(0);
     if (step == 0) { throw std::invalid_argument("slice::step == 0"); }
+
+    // Handle positive step
     if (step > 0) {
+        // Normalize start index
         start = t_slice.start.value_or(0);
         if (start < 0) {
-            start = std::max(zero, start + v_size);
+            start = std::max(zero, start + v_size);   // Convert negative index
         } else {
-            start = std::min(start, v_size);
+            start = std::min(start, v_size);   // Clamp to size
         }
 
+        // Normalize stop index
         stop = t_slice.stop.value_or(v_size);
         if (stop < 0) {
-            stop = std::max(zero, stop + v_size);
+            stop = std::max(zero, stop + v_size);   // Convert negative index
         } else {
-            stop = std::min(stop, v_size);
+            stop = std::min(stop, v_size);   // Clamp to size
         }
 
+        // Calculate number of steps
         num_steps = std::max(zero, (stop - start - 1) / step + 1);
-    } else {
-        start = t_slice.start.value_or(v_size - 1);
+    }
+    // Handle negative step
+    else {
+        // Normalize start index
+        start = t_slice.start.value_or(v_size - 1);   // Default start is last element
         if (start < 0) {
             start = std::max(static_cast<difference_type>(-1), start + v_size);
         } else {
             start = std::min(start, v_size - 1);
         }
 
+        // Normalize stop index
         if (t_slice.stop.has_value()) {
             stop = t_slice.stop.value();
             if (stop < 0) {
@@ -1631,14 +1754,32 @@ typename pyvec<T>::slice_native pyvec<T>::build_slice(const slice& t_slice) cons
                 stop = std::min(stop, v_size);
             }
         } else {
-            stop = -1;
+            stop = -1;   // Default stop for negative step
         }
 
+        // Calculate number of steps for negative direction
         num_steps = std::max(zero, (start - stop - 1) / -step + 1);
     }
     return {static_cast<size_type>(start), static_cast<size_type>(num_steps), step};
 }
 
+/**
+ * @brief Set the value at a specified index, supporting both positive and negative indexing.
+ *
+ * Similar to Python list's __setitem__ behavior, this method allows setting values using both
+ * positive and negative indices. Negative indices count from the end of the container.
+ *
+ * Examples:
+ *   Given container: [1, 2, 3]
+ *   - setitem(0, 9)  -> [9, 2, 3]    # Set first element
+ *   - setitem(2, 9)  -> [1, 2, 9]    # Set last element
+ *   - setitem(-1, 9) -> [1, 2, 9]    # Set last element using negative index
+ *   - setitem(-2, 9) -> [1, 9, 3]    # Set second-to-last element
+ *
+ * @param index The position where to set the value (can be negative)
+ * @param value The value to set at the specified position
+ * @throws std::out_of_range if index is out of bounds
+ */
 template<typename T>
 void pyvec<T>::setitem(const difference_type index, const T& value) {
     const auto pos   = pypos(index);
@@ -1652,23 +1793,67 @@ void pyvec<T>::setitem(const difference_type index, const shared<T>& value) {
     setitem(index, *value);
 }
 
+/*
+ * @brief Assign a sequence to a specified slice of the container, emulating Python list slice
+ * assignment.
+ *
+ * This function replaces the elements in the range defined by the slice with the elements from
+ * the provided sequence. Its behavior aligns with Python list semantics:
+ *
+ * - When the slice's step is 1, the replacement sequence is allowed to have a different length
+ * than the slice. In this case, extra elements are inserted (if the new sequence is longer) or
+ * removed (if it is shorter).
+ *
+ *   Example 1 (Insertion):
+ *       Original container: [1, 2, 3]
+ *       Operation: setitem(slice(1, 2, 1), [10, 20, 30])
+ *       Result: [1, 10, 20, 30, 3]
+ *
+ *   Example 2 (Deletion):
+ *       Original container: [1, 2, 3, 4]
+ *       Operation: setitem(slice(1, 4, 1), [7])
+ *       Result: [1, 7, 4]
+ *
+ * - When the slice's step is not 1, the length of the replacement sequence must exactly match
+ * the number of elements in the slice.
+ *
+ *   Example:
+ *       Original container: [1, 2, 3]
+ *       Operation: setitem(slice(0, 3, 2), [8, 9])
+ *       Result: [8, 2, 9]
+ *
+ * - If the replacement sequence is empty, the elements specified by the slice are removed.
+ *
+ * @tparam InputIt Iterator type for the replacement sequence.
+ * @param t_slice A slice object defining the range of elements to be replaced.
+ * @param first Iterator pointing to the beginning of the replacement sequence.
+ * @param last Iterator pointing past the end of the replacement sequence.
+ *
+ * @throws std::invalid_argument if the specified slice (with a non-unit step) does not match
+ * the length of the replacement sequence.
+ */
 template<typename T>
 template<typename InputIt>
 void pyvec<T>::setitem(const slice& t_slice, is_input_iterator_t<InputIt> first, InputIt last) {
     auto      s          = build_slice(t_slice);
     size_type other_size = std::distance(first, last);
-    if (other_size == 0) { this->delitem(t_slice); }
+    if (other_size == 0) {
+        this->delitem(t_slice);
+        return;
+    }
     if (s.step == 1) {
+        // For unit-step slices, allow the replacement to have a different size.
         difference_type delta =
             static_cast<difference_type>(other_size) - static_cast<difference_type>(s.num_steps);
         if (delta > 0) {
+            // Insert extra slots to accommodate additional elements.
             insert_empty(cbegin() + s.start + s.num_steps, delta);
         } else if (delta < 0) {
+            // Erase surplus slots if the replacement sequence is shorter.
             _ptrs.erase(
                 _ptrs.begin() + s.start + s.num_steps + delta, _ptrs.begin() + s.start + s.num_steps
             );
         }
-
         auto&  chunk = suitable_chunk(other_size);
         size_t pivot = s.start;
         for (auto it = first; it != last; ++it) {
@@ -1676,6 +1861,8 @@ void pyvec<T>::setitem(const slice& t_slice, is_input_iterator_t<InputIt> first,
             _ptrs[pivot++] = &chunk.back();
         }
     } else if (s.num_steps == other_size) {
+        // For non-unit step slices, the replacement sequence must exactly match the number of
+        // targeted elements.
         auto&  chunk = suitable_chunk(s.num_steps);
         size_t pivot = s.start;
         for (auto it = first; it != last; ++it) {
@@ -1698,6 +1885,22 @@ std::shared_ptr<T> pyvec<T>::getitem(const difference_type index) {
     return share(pypos(index));
 }
 
+/**
+ * @brief Returns a new pyvec containing elements specified by a slice (shallow copy)
+ * @details Creates a new pyvec with elements according to slice start:stop:step pattern.
+ *          Handles both positive and negative step sizes efficiently.
+ *
+ * @param t_slice Python-style slice with optional start, stop and step
+ * @return pyvec<T> New pyvec containing the sliced elements
+ *
+ * Examples:
+ * For container [1,2,3]:
+ * - getitem(slice(1,None,1)) -> [2,3]     # From index 1 to end
+ * - getitem(slice(None,2,1)) -> [1,2]     # From start to index 2
+ * - getitem(slice(0,3,2)) -> [1,3]        # Every 2nd element
+ * - getitem(slice(2,None,-1)) -> [3,2]    # Reverse from index 2
+ * - getitem(slice(None)) -> [1,2,3]       # Full copy
+ */
 template<typename T>
 pyvec<T> pyvec<T>::getitem(const slice& t_slice) {
     auto s = build_slice(t_slice);
@@ -1728,6 +1931,20 @@ void pyvec<T>::delitem(const difference_type index) {
     _ptrs.erase(_ptrs.begin() + pos);
 }
 
+/**
+ * @brief Deletes elements specified by a slice from the container
+ * @details Removes elements according to slice start:stop:step pattern.
+ *          Handles both positive and negative step sizes.
+ *
+ * @param t_slice Python-style slice with optional start, stop and step
+ *
+ * Examples:
+ * For container [1,2,3,4,5]:
+ * - delitem(slice(1,3,1)) -> [1,4,5]     # Remove elements at index 1,2
+ * - delitem(slice(0,5,2)) -> [2,4]       # Remove elements at index 0,2,4
+ * - delitem(slice(3,0,-1)) -> [1,4,5]    # Remove elements at index 3,2,1
+ * - delitem(slice(None)) -> []           # Remove all elements
+ */
 template<typename T>
 void pyvec<T>::delitem(const slice& t_slice) {
     auto s = build_slice(t_slice);
@@ -1746,6 +1963,22 @@ void pyvec<T>::delitem(const slice& t_slice) {
     _ptrs = std::move(new_ptrs);
 }
 
+/**
+ * @brief Checks if a value exists in the container
+ * @details Performs a linear search to find if the value exists.
+ *          Returns true if found, false otherwise.
+ *
+ * @param value Value to search for
+ * @return bool True if value exists, false otherwise
+ *
+ * Examples:
+ * For container [1,2,3]:
+ * - contains(2) -> true
+ * - contains(4) -> false
+ * - contains(1) -> true
+ * For container []:
+ * - contains(1) -> false
+ */
 template<typename T>
 bool pyvec<T>::contains(const T& value) const {
     auto check = [&value](const pointer& ptr) { return *ptr == value; };
@@ -1767,4 +2000,3 @@ std::vector<T> pyvec<T>::collect() const {
     return std::vector<T>{cbegin(), cend()};
 }
 }   // namespace pycontainer
-#endif   // PYVEC_HPP
