@@ -2000,3 +2000,5 @@ std::vector<T> pyvec<T>::collect() const {
     return std::vector<T>{cbegin(), cend()};
 }
 }   // namespace pycontainer
+
+#endif   // PYVEC_HPP
