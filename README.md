@@ -28,6 +28,62 @@ The **pyvec** container is a C++ template class designed to mimic Python list be
 
 ## Key Components
 
+```mermaid
+classDiagram
+    %% Group slice-related classes together
+    subgraph Slice Mechanism
+        class slice {
+            <<external interface>>
+            +optional~ptrdiff_t~ start
+            +optional~ptrdiff_t~ stop
+            +optional~ptrdiff_t~ step
+            +slice(start, stop, step)
+        }
+
+        class slice_native {
+            <<internal implementation>>
+            +size_t start
+            +size_t num_steps
+            +ptrdiff_t step
+        }
+    end
+
+    class pyvec {
+        -shared_ptr~vector~vector~T~~~ _resources
+        -vector~T*~ _ptrs
+        -shared_ptr~size_t~ _capacity
+        -size_t _chunk_pivot
+        -vector~T~* _last_chunk
+        +append(value)
+        +push_back(value)
+        +pop(index)
+        +remove(value)
+        +reverse()
+        +clear()
+        +sort(reverse)
+        +sort_shared(key, reverse)
+        +filter(func)
+        +copy()
+        +deepcopy()
+        +insert(index, value)
+        +setitem(index, value)
+        +setitem(slice, values)
+        +getitem(index)
+        +getitem(slice)
+        +delitem(index)
+        +delitem(slice)
+        +contains(value)
+        +collect()
+        -suitable_chunk(needed)
+        -build_slice(slice) slice_native
+    }
+
+    %% Relationships
+    slice --> slice_native : "converts to"
+    pyvec ..> slice : "accepts as input"
+    pyvec ..> slice_native : "uses internally"
+```
+
 ### Internal Data Structures
 
 - **_resources:**  
